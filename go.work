@@ -1,0 +1,8 @@
+go 1.26.1
+
+use (
+    ./shared
+    ./services/auth-service
+    ./services/flight-service
+	./services/booking-service
+)
