@@ -12,25 +12,23 @@ import (
 )
 
 type Handler struct {
-	service   *Service
-	tokenAuth *jwtauth.JWTAuth
+	service *Service
 }
 
 func NewHandler(db *pgxpool.Pool, tokenAuth *jwtauth.JWTAuth) *Handler {
-	return &Handler{service: NewService(db), tokenAuth: tokenAuth}
+	return &Handler{service: NewService(db, tokenAuth)}
 }
 
-func (h *Handler) initRoutes() chi.Router {
+func (h *Handler) InitRoutes() chi.Router {
 	r := chi.NewRouter()
-	r.Route("/auth", func(r chi.Router) {
-		r.Post("/signup", h.signup)
-		r.Post("/login", h.login)
-		r.Group(func(r chi.Router) {
-			r.Use(jwtauth.Verifier(h.tokenAuth))
-			r.Use(auth_middlewares.Authenticator(h.tokenAuth))
+	r.Post("/signup", h.signup)
+	r.Post("/login", h.login)
 
-			r.Post("/logout", h.logout)
-		})
+	r.Group(func(r chi.Router) {
+		r.Use(jwtauth.Verifier(h.service.tokenAuth))
+		r.Use(auth_middlewares.Authenticator(h.service.tokenAuth))
+
+		r.Post("/logout", h.logout)
 	})
 	return r
 }

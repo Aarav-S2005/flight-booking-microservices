@@ -6,11 +6,10 @@ import (
 )
 
 type Config struct {
-	Port                string `env:"CONTROL_PLANE_PORT" envDefault:"3001"`
-	MongoUri            string `env:"MONGO_URI"`
-	MongoDb             string `env:"MONGO_DB"`
-	RedisUri            string `env:"REDIS_URI"`
-	PublicJwtSecretPath string `env:"PUBLIC_KEY_JWT_PATH"`
+	Port                 string `env:"CONTROL_PLANE_PORT" envDefault:"3001"`
+	PostgresDSN          string `env:"POSTGRES_DSN"`
+	PublicJwtSecretPath  string `env:"PUBLIC_KEY_JWT_PATH"`
+	PrivateKeySecretPath string `env:"PRIVATE_KEY_JWT_PATH"`
 }
 
 func LoadEnv() (Config, error) {

@@ -9,13 +9,11 @@ import (
 	"github.com/google/uuid"
 )
 
-var tokenAuth *jwtauth.JWTAuth
-
-func InitAuth(privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) {
-	tokenAuth = jwtauth.New("ES256", privKey, pubKey)
+func InitAuth(privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) *jwtauth.JWTAuth {
+	return jwtauth.New("ES256", privKey, pubKey)
 }
 
-func SignJwt(id uuid.UUID) (string, error) {
+func SignJwt(tokenAuth *jwtauth.JWTAuth, id uuid.UUID) (string, error) {
 	if tokenAuth == nil {
 		return "", errors.New("auth not initialized")
 	}
