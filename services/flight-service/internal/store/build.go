@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/schema"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -13,16 +15,83 @@ func NewRegistry() *Registry {
 	return &Registry{}
 }
 
-func (reg *Registry) buildSnapShot(ctx context.Context, db *pgxpool.Pool) error {
+func (reg *Registry) buildSnapShot(ctx context.Context, db *pgxpool.Pool) (*FlightsSnapshot, error) {
 	airports, err := getAllAirportsFromDB(ctx, db)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	airportsByCode := make(map[string]schema.Airport)
+	flights, err := getFlightsFromDB(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshot := FlightsSnapshot{
+		FlightsByID:            make(map[uuid.UUID]schema.Flight),
+		AirportsByCode:         make(map[string]schema.Airport),
+		Version:                0,
+		ByAirlineName:          make(map[string][]uuid.UUID),
+		ByDepartureDate:        make(map[DateKey][]uuid.UUID),
+		ByArrivalDate:          make(map[DateKey][]uuid.UUID),
+		ByTimeBucket:           make(map[TimeBucket][]uuid.UUID),
+		BySourceAirport:        make(map[string][]uuid.UUID),
+		ByRoute:                make(map[RouteKey][]uuid.UUID),
+		AdjBySource:            make(map[string][]uuid.UUID),
+		ListByPriceAsc:         make([]uuid.UUID, 0),
+		ListByDurationAsc:      make([]uuid.UUID, 0),
+		ListByDepartureTimeAsc: make([]uuid.UUID, 0),
+	}
+
+	// PUTTING AIRPORT
 	for _, airport := range airports {
-		airportsByCode[airport.AirportCode] = airport
+		snapshot.AirportsByCode[airport.AirportCode] = airport
 	}
-	return nil
+
+	// PITTING FLIGHTS
+	for _, flight := range flights {
+		snapshot.FlightsByID[flight.Id] = flight
+		snapshot.ByAirlineName[flight.AirlineName] = append(snapshot.ByAirlineName[flight.AirlineName], flight.Id)
+		snapshot.BySourceAirport[flight.SourceAirportCode] = append(snapshot.BySourceAirport[flight.SourceAirportCode], flight.Id)
+		routeKey := RouteKey{
+			Source: flight.SourceAirportCode,
+			Dest:   flight.DestinationAirportCode,
+		}
+		snapshot.ByRoute[routeKey] = append(snapshot.ByRoute[routeKey], flight.Id)
+		snapshot.AdjBySource[flight.SourceAirportCode] = append(snapshot.AdjBySource[flight.SourceAirportCode], flight.Id)
+		departureKey := DateKey{
+			Year:  flight.DepartureTime.Year(),
+			Month: flight.DepartureTime.Month(),
+			Day:   flight.DepartureTime.Day(),
+		}
+		snapshot.ByDepartureDate[departureKey] = append(snapshot.ByDepartureDate[departureKey], flight.Id)
+		arrivalKey := DateKey{
+			Year:  flight.ArrivalTime.Year(),
+			Month: flight.ArrivalTime.Month(),
+			Day:   flight.ArrivalTime.Day(),
+		}
+		snapshot.ByArrivalDate[arrivalKey] = append(snapshot.ByArrivalDate[arrivalKey], flight.Id)
+
+		hour := flight.DepartureTime.Hour()
+
+		var bucket TimeBucket
+		switch {
+		case hour >= 6 && hour < 12:
+			bucket = Morning
+		case hour >= 12 && hour < 18:
+			bucket = Afternoon
+		case hour >= 18 && hour < 24:
+			bucket = Night
+		default: // 00:00 - 05:59
+			bucket = LateNight
+		}
+
+		snapshot.ByTimeBucket[bucket] = append(snapshot.ByTimeBucket[bucket], flight.Id)
+
+		snapshot.ListByPriceAsc = append(snapshot.ListByPriceAsc, flight.Id)
+		snapshot.ListByDurationAsc = append(snapshot.ListByDurationAsc, flight.Id)
+		snapshot.ListByDepartureTimeAsc = append(snapshot.ListByDepartureTimeAsc, flight.Id)
+	}
+
+	return &snapshot, nil
 }
 
 func getAllAirportsFromDB(ctx context.Context, db *pgxpool.Pool) ([]schema.Airport, error) {
@@ -32,19 +101,9 @@ func getAllAirportsFromDB(ctx context.Context, db *pgxpool.Pool) ([]schema.Airpo
 	}
 	defer rows.Close()
 
-	var airports []schema.Airport
-	for rows.Next() {
-		var a schema.Airport
-
-		err := rows.Scan(&a.AirportCode, &a.AirportName, &a.City, &a.Country)
-		if err != nil {
-			return nil, fmt.Errorf("row scan failed: %w", err)
-		}
-
-		airports = append(airports, a)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("row iteration error: %w", err)
+	airports, err := pgx.CollectRows(rows, pgx.RowToStructByName[schema.Airport])
+	if err != nil {
+		return nil, fmt.Errorf("collect failed: %w", err)
 	}
 
 	return airports, nil
@@ -52,6 +111,16 @@ func getAllAirportsFromDB(ctx context.Context, db *pgxpool.Pool) ([]schema.Airpo
 
 func getFlightsFromDB(ctx context.Context, db *pgxpool.Pool) ([]schema.Flight, error) {
 	now := time.Now()
-	rows, err := db.Query(ctx, "SELECT * FROM flights where departure_time < $1", now)
-	return nil, nil
+	after15Days := now.AddDate(0, 0, 15)
+	after45Days := now.AddDate(0, 0, 45)
+	rows, err := db.Query(ctx, "SELECT * FROM flights WHERE departure_time > $1 AND departure_time < $2", after15Days, after45Days)
+	if err != nil {
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+	defer rows.Close()
+	flights, err := pgx.CollectRows(rows, pgx.RowToStructByName[schema.Flight])
+	if err != nil {
+		return nil, fmt.Errorf("collect failed: %w", err)
+	}
+	return flights, nil
 }
