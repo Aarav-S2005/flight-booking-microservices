@@ -10,7 +10,7 @@ import (
 type TimeBucket string
 
 const (
-	// all inclusive times
+	// [x, y), start time inclusive, end time exclusive
 	Morning   TimeBucket = "morning"    // 06:00-12:00
 	Afternoon TimeBucket = "afternoon"  // 12:00-18:00
 	Night     TimeBucket = "night"      // 18:00-24:00
@@ -45,4 +45,53 @@ type FlightsSnapshot struct {
 	ListByPriceAsc         []uuid.UUID
 	ListByDurationAsc      []uuid.UUID
 	ListByDepartureTimeAsc []uuid.UUID
+}
+
+func NewDateKey(t time.Time) DateKey {
+	return DateKey{
+		Year:  t.Year(),
+		Month: t.Month(),
+		Day:   t.Day(),
+	}
+}
+
+func NewTimeBucket(t time.Time) TimeBucket {
+	hour := t.Hour()
+
+	switch {
+	case hour >= 6 && hour < 12:
+		return Morning
+	case hour >= 12 && hour < 18:
+		return Afternoon
+	case hour >= 18 && hour < 24:
+		return Night
+	default:
+		return LateNight
+	}
+}
+
+func MatchesTimeBucket(t time.Time, buckets []TimeBucket) bool {
+	if len(buckets) == 0 {
+		return true
+	}
+
+	bucket := NewTimeBucket(t)
+
+	for _, allowed := range buckets {
+		if bucket == allowed {
+			return true
+		}
+	}
+
+	return false
+}
+
+func MatchesDate(t time.Time, date *DateKey) bool {
+	if date == nil {
+		return true
+	}
+
+	return t.Year() == date.Year &&
+		t.Month() == date.Month &&
+		t.Day() == date.Day
 }

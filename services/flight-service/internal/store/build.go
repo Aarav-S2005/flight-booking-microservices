@@ -111,9 +111,9 @@ func getAllAirportsFromDB(ctx context.Context, db *pgxpool.Pool) ([]schema.Airpo
 
 func getFlightsFromDB(ctx context.Context, db *pgxpool.Pool) ([]schema.Flight, error) {
 	now := time.Now()
-	after15Days := now.AddDate(0, 0, 15)
+	today := now
 	after45Days := now.AddDate(0, 0, 45)
-	rows, err := db.Query(ctx, "SELECT * FROM flights WHERE departure_time > $1 AND departure_time < $2", after15Days, after45Days)
+	rows, err := db.Query(ctx, "SELECT * FROM flights WHERE departure_time > $1 AND departure_time < $2", today, after45Days)
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}
