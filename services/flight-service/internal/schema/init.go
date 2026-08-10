@@ -45,7 +45,7 @@ const (
 				CHECK (duration > 0),
 		
 			CONSTRAINT chk_different_airports
-				CHECK (source_airport_code <> destination_airport_code)
+				CHECK (source_airport_code <> destination_airport_code),
 
 			CONSTRAINT chk_arrival_after_departure
 				CHECK (arrival_time > departure_time)

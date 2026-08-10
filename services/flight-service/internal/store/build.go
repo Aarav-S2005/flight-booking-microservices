@@ -11,11 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func NewRegistry() *Registry {
-	return &Registry{}
-}
-
-func (reg *Registry) buildSnapShot(ctx context.Context, db *pgxpool.Pool) (*FlightsSnapshot, error) {
+func buildSnapShot(ctx context.Context, db *pgxpool.Pool) (*FlightsSnapshot, error) {
 	airports, err := getAllAirportsFromDB(ctx, db)
 	if err != nil {
 		return nil, err
@@ -28,7 +24,6 @@ func (reg *Registry) buildSnapShot(ctx context.Context, db *pgxpool.Pool) (*Flig
 	snapshot := FlightsSnapshot{
 		FlightsByID:            make(map[uuid.UUID]schema.Flight),
 		AirportsByCode:         make(map[string]schema.Airport),
-		Version:                0,
 		ByAirlineName:          make(map[string][]uuid.UUID),
 		ByDepartureDate:        make(map[DateKey][]uuid.UUID),
 		ByArrivalDate:          make(map[DateKey][]uuid.UUID),

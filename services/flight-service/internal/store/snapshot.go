@@ -31,7 +31,6 @@ type RouteKey struct {
 type FlightsSnapshot struct {
 	FlightsByID    map[uuid.UUID]schema.Flight
 	AirportsByCode map[string]schema.Airport
-	Version        uint64
 
 	ByAirlineName   map[string][]uuid.UUID
 	ByDepartureDate map[DateKey][]uuid.UUID

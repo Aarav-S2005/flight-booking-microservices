@@ -2,23 +2,58 @@ package endpoint
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/store"
+	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
+	"github.com/google/uuid"
 )
 
 type Service struct {
-	snapshot *store.Registry
+	registry *store.Registry
+	repo     *Repository
 }
 
-func NewService(snapshot *store.Registry) *Service {
-	return &Service{snapshot: snapshot}
+func NewService(snapshot *store.Registry, repo *Repository) *Service {
+	return &Service{registry: snapshot, repo: repo}
 }
 
 func (s *Service) searchFlights(ctx context.Context, query Query) SearchResponse {
-	snap := s.snapshot.Snap.Load()
+	snap := s.registry.Get()
 	routes := searchValidRoutes(snap, query)
 	return SearchResponse{Flights: routes}
+}
+
+func (s *Service) getFlight(ctx context.Context, flightID uuid.UUID) (GetFlightResponse, error) {
+	snap := s.registry.Get()
+	flight, ok := snap.FlightsByID[flightID]
+	if !ok {
+		return GetFlightResponse{}, app_error.NotFound("flight not found", errors.New("could not fin flight:"+flightID.String()))
+	}
+
+	sourceAirportName, err := s.repo.getAirportByCode(ctx, flight.SourceAirportCode)
+	if err != nil {
+		return GetFlightResponse{}, err
+	}
+	destinationAirportName, err := s.repo.getAirportByCode(ctx, flight.DestinationAirportCode)
+	if err != nil {
+		return GetFlightResponse{}, err
+	}
+	return GetFlightResponse{
+		FlightID:               flightID,
+		FlightNumber:           flight.FlightNumber,
+		AirlineName:            flight.AirlineName,
+		AircraftType:           flight.AircraftType,
+		SourceAirportCode:      flight.SourceAirportCode,
+		SourceAirportName:      sourceAirportName,
+		DestinationAirportCode: flight.DestinationAirportCode,
+		DestinationAirportName: destinationAirportName,
+		DepartureTime:          flight.DepartureTime,
+		ArrivalTime:            flight.ArrivalTime,
+		DurationInMins:         flight.DurationInMins,
+		Price:                  flight.Price,
+	}, nil
 }
 
 func searchValidRoutes(snap *store.FlightsSnapshot, query Query) []Route {
@@ -97,6 +132,7 @@ func dfs(snap *store.FlightsSnapshot, curAirport string, stops int, query Query,
 			continue
 		}
 		segment := Segment{
+			FlightID:           flightID,
 			FlightNumber:       flight.FlightNumber,
 			AirlineName:        flight.AirlineName,
 			SourceAirport:      flight.SourceAirportCode,
