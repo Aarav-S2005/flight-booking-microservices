@@ -10,6 +10,7 @@ type Config struct {
 	PostgresDSN         string `env:"POSTGRES_DSN"`
 	PublicJwtSecretPath string `env:"PUBLIC_KEY_JWT_PATH"`
 	RabbitMQURL         string `env:"RABBITMQ_URL"`
+	BookingServiceURL   string `env:"BOOKING_SERVICE_URL"`
 }
 
 func LoadEnv() (Config, error) {

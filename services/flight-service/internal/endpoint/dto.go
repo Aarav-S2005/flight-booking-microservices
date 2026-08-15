@@ -31,15 +31,30 @@ type Segment struct {
 
 type GetFlightResponse struct {
 	FlightID               uuid.UUID `json:"flight_id"`
-	FlightNumber           string    `db:"flight_number"`
-	AirlineName            string    `db:"airline_name"`
-	AircraftType           string    `db:"aircraft_type"`
-	SourceAirportCode      string    `db:"source_airport_code"`
-	SourceAirportName      string    `db:"source_airport_name"`
-	DestinationAirportCode string    `db:"destination_airport_code"`
-	DestinationAirportName string    `db:"destination_airport_name"`
-	DepartureTime          time.Time `db:"departure_time"`
-	ArrivalTime            time.Time `db:"arrival_time"`
-	DurationInMins         int       `db:"duration"`
-	Price                  int       `db:"price"`
+	FlightNumber           string    `json:"flight_number"`
+	AirlineName            string    `json:"airline_name"`
+	AircraftType           string    `json:"aircraft_type"`
+	SourceAirportCode      string    `json:"source_airport_code"`
+	SourceAirportName      string    `json:"source_airport_name"`
+	DestinationAirportCode string    `json:"destination_airport_code"`
+	DestinationAirportName string    `json:"destination_airport_name"`
+	DepartureTime          time.Time `json:"departure_time"`
+	ArrivalTime            time.Time `json:"arrival_time"`
+	DurationInMins         int       `json:"duration"`
+	Price                  int       `json:"price"`
+}
+
+type CreateFlightDTO struct {
+	FlightNumber           string    `json:"flight_number"`
+	AirlineName            string    `json:"airline_name"`
+	AircraftType           string    `json:"aircraft_type"`
+	SourceAirportCode      string    `json:"source_airport_code"`
+	DestinationAirportCode string    `json:"destination_airport_code"`
+	DepartureTime          time.Time `json:"departure_time"`
+	ArrivalTime            time.Time `json:"arrival_time"`
+	Price                  int       `json:"price"`
+}
+
+type GetFlightSeatsFromBookingResponse struct {
+	SeatsLeft int `json:"seats_left"`
 }

@@ -3,20 +3,26 @@ package endpoint
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/store"
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
+	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 )
 
 type Service struct {
 	registry *store.Registry
 	repo     *Repository
+	client   *resty.Client
 }
 
-func NewService(snapshot *store.Registry, repo *Repository) *Service {
-	return &Service{registry: snapshot, repo: repo}
+func NewService(snapshot *store.Registry, repo *Repository, bookingURL string) *Service {
+	client := resty.New().
+		SetBaseURL(bookingURL).
+		SetHeader("Content-Type", "application/json")
+	return &Service{registry: snapshot, repo: repo, client: client}
 }
 
 func (s *Service) searchFlights(ctx context.Context, query Query) SearchResponse {
@@ -54,6 +60,22 @@ func (s *Service) getFlight(ctx context.Context, flightID uuid.UUID) (GetFlightR
 		DurationInMins:         flight.DurationInMins,
 		Price:                  flight.Price,
 	}, nil
+}
+
+func (s *Service) createFlight(ctx context.Context, reqBody CreateFlightDTO) error {
+	var resBody GetFlightSeatsFromBookingResponse
+	resp, err := s.client.R().SetQueryParam("aircraftType", reqBody.AircraftType).SetResult(&resBody).Get("/flight-type")
+	if err != nil {
+		return err
+	}
+	if !resp.IsSuccess() {
+		return fmt.Errorf("failed to get flight type: status %d", resp.StatusCode())
+	}
+	err = s.repo.createFlight(ctx, reqBody, resBody.SeatsLeft)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func searchValidRoutes(snap *store.FlightsSnapshot, query Query) []Route {

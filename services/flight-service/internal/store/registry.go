@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/google/uuid"
@@ -32,7 +33,7 @@ func (reg *Registry) Get() *FlightsSnapshot {
 	return reg.snap
 }
 
-func (reg *Registry) ApplySeatUpdate(flightID uuid.UUID, newSeat int, version uint64) error {
+func (reg *Registry) ApplySeatUpdate(ctx context.Context, flightID uuid.UUID, newSeat int, version uint64, db *pgxpool.Pool) error {
 	reg.mu.Lock()
 	defer reg.mu.Unlock()
 
@@ -44,6 +45,12 @@ func (reg *Registry) ApplySeatUpdate(flightID uuid.UUID, newSeat int, version ui
 	if version <= reg.lastApplied[flightID] {
 		return nil
 	}
+
+	_, err := db.Exec(ctx, ` UPDATE flights SET seats_left = $1 WHERE id = $2 `, newSeat, flightID)
+	if err != nil {
+		log.Printf("failed to update seats_left: %v", err)
+	}
+
 	flight.SeatsLeft = newSeat
 	reg.snap.FlightsByID[flightID] = flight
 	reg.lastApplied[flightID] = version

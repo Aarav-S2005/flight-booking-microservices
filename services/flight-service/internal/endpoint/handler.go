@@ -18,13 +18,14 @@ type Handler struct {
 	service *Service
 }
 
-func NewHandler(db *pgxpool.Pool, registry *store.Registry) *Handler {
-	return &Handler{service: NewService(registry, NewRepository(db))}
+func NewHandler(db *pgxpool.Pool, registry *store.Registry, bookingURL string) *Handler {
+	return &Handler{service: NewService(registry, NewRepository(db), bookingURL)}
 }
 
 func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth) chi.Router {
 	r := chi.NewRouter()
 	r.Get("/flight/{flightID}", h.getFlight)
+	r.Post("/admin/flight", h.createFlight)
 	r.Group(func(r chi.Router) {
 		r.Use(auth_middlewares.Verifier(tokenAuth))
 		r.Use(auth_middlewares.Authenticator(tokenAuth))
@@ -60,4 +61,19 @@ func (h *Handler) getFlight(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	utility.ConvertStructToJSON(w, 200, res)
+}
+
+func (h *Handler) createFlight(w http.ResponseWriter, r *http.Request) {
+	var reqBody CreateFlightDTO
+	err := utility.ConvertJSONToStruct(r, &reqBody)
+	if err != nil {
+		app_error.HandleError(w, app_error.BadRequest("could not parse request body", err))
+		return
+	}
+	err = h.service.createFlight(r.Context(), reqBody)
+	if err != nil {
+		app_error.HandleError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
 }

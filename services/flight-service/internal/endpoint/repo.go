@@ -24,3 +24,47 @@ func (repo *Repository) getAirportByCode(ctx context.Context, airportCode string
 	}
 	return name, nil
 }
+
+func (repo *Repository) createFlight(ctx context.Context, reqBody CreateFlightDTO, seatsLeft int) error {
+	_, err := repo.db.Exec(ctx, `
+		INSERT INTO flights (
+			flight_number,
+			airline_name,
+			aircraft_type,
+			seats_left,
+			source_airport_code,
+			destination_airport_code,
+			departure_time,
+			arrival_time,
+			duration,
+			price
+		)
+		VALUES (
+			$1,
+			$2,
+			$3,
+			$4,
+			$5,
+			$6,
+			$7,
+			$8,
+			EXTRACT(EPOCH FROM ($8 - $7)) / 60)::INTEGER,
+			$9
+		)
+	`,
+		reqBody.FlightNumber,
+		reqBody.AirlineName,
+		reqBody.AircraftType,
+		seatsLeft,
+		reqBody.SourceAirportCode,
+		reqBody.DestinationAirportCode,
+		reqBody.DepartureTime,
+		reqBody.ArrivalTime,
+		reqBody.Price,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

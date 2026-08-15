@@ -21,7 +21,7 @@ const (
 
 		CREATE TABLE IF NOT EXISTS flights (
 		    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			flight_number VARCHAR(6) NOT NULL,
+			flight_number VARCHAR(6) NOT NULL UNIQUE,
 			airline_name VARCHAR(255) NOT NULL,
 			aircraft_type char(4) NOT NULL,
 			seats_left int NOT NULL,

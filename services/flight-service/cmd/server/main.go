@@ -61,7 +61,7 @@ func main() {
 		log.Fatal(err)
 	}
 	err = rabbitmq.ConsumeFlightEvents(ctx, func(event async.SeatUpdatedEvent) error {
-		return registry.ApplySeatUpdate(event.FlightID, event.NewSeat, event.Version)
+		return registry.ApplySeatUpdate(ctx, event.FlightID, event.NewSeat, event.Version, db)
 	})
 	log.Println("RabbitMQ consumer ready to consume...")
 	if err != nil {
@@ -78,7 +78,7 @@ func main() {
 	tokenAuth := jwtauth.New("ES256", nil, pubKey)
 	log.Println("Token auth initialized...")
 
-	h := endpoint.NewHandler(db, registry)
+	h := endpoint.NewHandler(db, registry, cfg.BookingServiceURL)
 	r := h.InitRoutes(tokenAuth)
 	log.Println("Endpoint initialized...")
 
