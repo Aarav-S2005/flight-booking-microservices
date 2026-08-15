@@ -48,11 +48,12 @@ func (repo *Repository) addUserIfAbsent(ctx context.Context, email string, passw
 
 func (repo *Repository) findUserByEmail(ctx context.Context, email string) (*db.User, error) {
 	row := repo.db.QueryRow(ctx, "select * from users where email = $1", email)
-	if row == nil {
-		return nil, ErrUserNotFound
-	}
 	var user db.User
-	err := row.Scan(&user)
+	err := row.Scan(&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.CreatedAt,
+		&user.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrUserNotFound

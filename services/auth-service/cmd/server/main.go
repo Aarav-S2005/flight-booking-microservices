@@ -4,9 +4,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/Aarav-S2005/flight-booking-microservices/services/auth-service/config"
 	userDB "github.com/Aarav-S2005/flight-booking-microservices/services/auth-service/internal/db"
@@ -17,7 +14,8 @@ import (
 )
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	//ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cfg, err := config.LoadEnv()
 	if err != nil {
@@ -59,10 +57,11 @@ func main() {
 	r := endpoint.Init(db, tokenAuth)
 	log.Println("Endpoint initialized...")
 
+	log.Println("Auth Server running on port: " + cfg.Port + "...")
 	err = http.ListenAndServe(":"+cfg.Port, r)
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
-	log.Println("Auth Server running on port: " + cfg.Port + "...")
+
 }

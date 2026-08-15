@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/Aarav-S2005/flight-booking-microservices/services/auth-service/internal/jwt"
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
@@ -38,18 +39,16 @@ func (s *Service) signup(ctx context.Context, reqBody LoginRequest) (string, err
 }
 
 func (s *Service) login(ctx context.Context, reqBody LoginRequest) (string, error) {
-	hashedPassword, err := HashPassword(reqBody.Password)
-	if err != nil {
-		return "", err
-	}
 	user, err := s.repo.findUserByEmail(ctx, reqBody.Email)
 	if err != nil {
+		log.Print("wrong email")
 		if errors.Is(err, ErrUserNotFound) {
 			return "", app_error.Unauthorized("invalid email or password", err)
 		}
 		return "", err
 	}
-	if user.PasswordHash != hashedPassword {
+	if !VerifyPassword(reqBody.Password, user.PasswordHash) {
+		log.Print("wrong password")
 		return "", app_error.Unauthorized("invalid email or password", errors.New("invalid email or password"))
 	}
 	token, err := jwt.SignJwt(s.tokenAuth, user.ID)

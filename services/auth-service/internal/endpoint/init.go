@@ -12,8 +12,8 @@ func Init(db *pgxpool.Pool, tokenAuth *jwtauth.JWTAuth) chi.Router {
 
 	authRouter := authHandler.InitRoutes()
 
-	//r := chi.NewRouter()
-	//r.Mount("/auth", authRouter)
+	r := chi.NewRouter()
+	r.Mount("/auth", authRouter)
 
-	return authRouter
+	return r
 }
