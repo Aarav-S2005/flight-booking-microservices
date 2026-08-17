@@ -4,9 +4,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/config"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/async"
@@ -19,7 +16,8 @@ import (
 )
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	//ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	cfg, err := config.LoadEnv()
@@ -78,7 +76,7 @@ func main() {
 	tokenAuth := jwtauth.New("ES256", nil, pubKey)
 	log.Println("Token auth initialized...")
 
-	h := endpoint.NewHandler(db, registry, cfg.BookingServiceURL)
+	h := endpoint.NewHandler(db, registry, cfg.ReservationServiceURL)
 	r := h.InitRoutes(tokenAuth)
 	log.Println("Endpoint initialized...")
 

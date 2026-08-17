@@ -18,8 +18,8 @@ type Handler struct {
 	service *Service
 }
 
-func NewHandler(db *pgxpool.Pool, registry *store.Registry, bookingURL string) *Handler {
-	return &Handler{service: NewService(registry, NewRepository(db), bookingURL)}
+func NewHandler(db *pgxpool.Pool, registry *store.Registry, reservationURL string) *Handler {
+	return &Handler{service: NewService(registry, NewRepository(db), reservationURL)}
 }
 
 func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth) chi.Router {

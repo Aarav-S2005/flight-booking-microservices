@@ -18,9 +18,9 @@ type Service struct {
 	client   *resty.Client
 }
 
-func NewService(snapshot *store.Registry, repo *Repository, bookingURL string) *Service {
+func NewService(snapshot *store.Registry, repo *Repository, reservationURL string) *Service {
 	client := resty.New().
-		SetBaseURL(bookingURL).
+		SetBaseURL(reservationURL).
 		SetHeader("Content-Type", "application/json")
 	return &Service{registry: snapshot, repo: repo, client: client}
 }

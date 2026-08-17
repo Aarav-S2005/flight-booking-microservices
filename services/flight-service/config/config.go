@@ -6,11 +6,11 @@ import (
 )
 
 type Config struct {
-	Port                string `env:"CONTROL_PLANE_PORT" envDefault:"3001"`
-	PostgresDSN         string `env:"POSTGRES_DSN"`
-	PublicJwtSecretPath string `env:"PUBLIC_KEY_JWT_PATH"`
-	RabbitMQURL         string `env:"RABBITMQ_URL"`
-	BookingServiceURL   string `env:"BOOKING_SERVICE_URL"`
+	Port                  string `env:"CONTROL_PLANE_PORT" envDefault:"3001"`
+	PostgresDSN           string `env:"POSTGRES_DSN"`
+	PublicJwtSecretPath   string `env:"PUBLIC_KEY_JWT_PATH"`
+	RabbitMQURL           string `env:"RABBITMQ_URL"`
+	ReservationServiceURL string `env:"RESERVATION_SERVICE_URL"`
 }
 
 func LoadEnv() (Config, error) {
