@@ -6,7 +6,7 @@ import (
 )
 
 type Config struct {
-	Port                  string `env:"CONTROL_PLANE_PORT" envDefault:"3001"`
+	Port                  string `env:"CONTROL_PLANE_PORT" envDefault:"3201"`
 	PostgresDSN           string `env:"POSTGRES_DSN"`
 	PublicJwtSecretPath   string `env:"PUBLIC_KEY_JWT_PATH"`
 	RabbitMQURL           string `env:"RABBITMQ_URL"`

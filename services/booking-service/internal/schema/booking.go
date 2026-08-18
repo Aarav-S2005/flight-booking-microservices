@@ -20,15 +20,20 @@ type Contact struct {
 }
 
 type Booking struct {
-	ID            uuid.UUID     `db:"_id,omitempty" json:"id"`
-	BookingUserID string        `db:"user_id" json:"user_id"`
-	FlightID      int64         `db:"flight_id" json:"flight_id"`
-	ReservationID string        `db:"reservation_id" json:"reservation_id"`
-	PaymentID     string        `db:"payment_id,omitempty" json:"payment_id,omitempty"`
+	ID            uuid.UUID     `db:"_id,omitempty" json:"id,omitempty"`
+	BookingUserID uuid.UUID     `db:"user_id" json:"user_id"`
+	ReservationID *uuid.UUID    `db:"reservation_id,omitempty" json:"reservation_id,omitempty"`
+	PaymentID     *uuid.UUID    `db:"payment_id,omitempty" json:"payment_id,omitempty"`
 	Email         *string       `db:"email" json:"email,omitempty"`
 	Phone         *string       `db:"phone" json:"phone,omitempty"`
-	TotalFare     float64       `db:"total_fare" json:"total_fare"`
-	Status        BookingStatus `db:"status" json:"status"`
-	CreatedAt     time.Time     `db:"created_at" json:"created_at"`
-	UpdatedAt     time.Time     `db:"updated_at" json:"updated_at"`
+	TotalFare     float64       `db:"total_fare" json:"total_fare,omitempty"`
+	Status        BookingStatus `db:"status" json:"status,omitempty"`
+	CreatedAt     time.Time     `db:"created_at" json:"created_at,omitempty"`
+	UpdatedAt     time.Time     `db:"updated_at" json:"updated_at,omitempty"`
+}
+
+type FlightSegment struct {
+	BookingID    uuid.UUID `db:"booking_id" json:"booking_id"`
+	FlightID     uuid.UUID `db:"flight_id" json:"flight_id"`
+	SegmentOrder int       `db:"segment_order" json:"segment_order"`
 }
