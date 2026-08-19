@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/schema"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/store"
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
 	"github.com/go-resty/resty/v2"
@@ -64,17 +65,31 @@ func (s *Service) getFlight(ctx context.Context, flightID uuid.UUID) (GetFlightR
 
 func (s *Service) createFlight(ctx context.Context, reqBody CreateFlightDTO) error {
 	var resBody GetFlightSeatsFromBookingResponse
-	resp, err := s.client.R().SetQueryParam("aircraftType", reqBody.AircraftType).SetResult(&resBody).Get("/flight-type")
+	resp, err := s.client.R().SetQueryParam("aircraft-type", reqBody.AircraftType).SetResult(&resBody).Get("/flight-type")
 	if err != nil {
 		return err
 	}
 	if !resp.IsSuccess() {
 		return fmt.Errorf("failed to get flight type: status %d", resp.StatusCode())
 	}
-	err = s.repo.createFlight(ctx, reqBody, resBody.SeatsLeft)
+	flightID, err := s.repo.createFlight(ctx, reqBody, resBody.SeatsLeft)
 	if err != nil {
 		return err
 	}
+	flight := schema.Flight{
+		Id:                     flightID,
+		FlightNumber:           reqBody.FlightNumber,
+		AirlineName:            reqBody.AirlineName,
+		AircraftType:           reqBody.AircraftType,
+		SeatsLeft:              resBody.SeatsLeft,
+		SourceAirportCode:      reqBody.SourceAirportCode,
+		DestinationAirportCode: reqBody.DestinationAirportCode,
+		DepartureTime:          reqBody.DepartureTime,
+		ArrivalTime:            reqBody.ArrivalTime,
+		DurationInMins:         int(reqBody.ArrivalTime.Sub(reqBody.DepartureTime).Minutes()),
+		Price:                  reqBody.Price,
+	}
+	s.registry.AddFlight(flight)
 	return nil
 }
 

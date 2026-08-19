@@ -3,6 +3,7 @@ package endpoint
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -25,8 +26,9 @@ func (repo *Repository) getAirportByCode(ctx context.Context, airportCode string
 	return name, nil
 }
 
-func (repo *Repository) createFlight(ctx context.Context, reqBody CreateFlightDTO, seatsLeft int) error {
-	_, err := repo.db.Exec(ctx, `
+func (repo *Repository) createFlight(ctx context.Context, reqBody CreateFlightDTO, seatsLeft int) (uuid.UUID, error) {
+	var flightID uuid.UUID
+	err := repo.db.QueryRow(ctx, `
 		INSERT INTO flights (
 			flight_number,
 			airline_name,
@@ -51,6 +53,7 @@ func (repo *Repository) createFlight(ctx context.Context, reqBody CreateFlightDT
 			EXTRACT(EPOCH FROM ($8 - $7)) / 60)::INTEGER,
 			$9
 		)
+		RETURNING flight_id
 	`,
 		reqBody.FlightNumber,
 		reqBody.AirlineName,
@@ -61,10 +64,10 @@ func (repo *Repository) createFlight(ctx context.Context, reqBody CreateFlightDT
 		reqBody.DepartureTime,
 		reqBody.ArrivalTime,
 		reqBody.Price,
-	)
+	).Scan(&flightID)
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
 
-	return nil
+	return flightID, nil
 }

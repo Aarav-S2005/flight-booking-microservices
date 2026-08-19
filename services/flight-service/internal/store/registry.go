@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"maps"
+	"sort"
 	"sync"
 
+	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/schema"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -56,4 +59,90 @@ func (reg *Registry) ApplySeatUpdate(ctx context.Context, flightID uuid.UUID, ne
 	reg.lastApplied[flightID] = version
 
 	return nil
+}
+
+func (reg *Registry) AddFlight(flight schema.Flight) {
+	reg.mu.Lock()
+	defer reg.mu.Unlock()
+	old := reg.snap
+	next := cloneForInsert(old, flight)
+	reg.snap = next
+}
+
+func cloneForInsert(old *FlightsSnapshot, f schema.Flight) *FlightsSnapshot {
+	next := &FlightsSnapshot{
+		FlightsByID:     maps.Clone(old.FlightsByID),   // O(#flights) — see note below
+		AirportsByCode:  old.AirportsByCode,            // unchanged, share directly
+		ByAirlineName:   maps.Clone(old.ByAirlineName), // O(#distinct airlines)
+		ByDepartureDate: maps.Clone(old.ByDepartureDate),
+		ByArrivalDate:   maps.Clone(old.ByArrivalDate),
+		ByTimeBucket:    maps.Clone(old.ByTimeBucket),
+		BySourceAirport: maps.Clone(old.BySourceAirport),
+		ByRoute:         maps.Clone(old.ByRoute),
+		AdjBySource:     maps.Clone(old.AdjBySource),
+
+		ListByPriceAsc:         old.ListByPriceAsc, // handled below
+		ListByDurationAsc:      old.ListByDurationAsc,
+		ListByDepartureTimeAsc: old.ListByDepartureTimeAsc,
+	}
+
+	next.FlightsByID[f.Id] = f
+
+	next.ByAirlineName[f.AirlineName] = appendCopy(next.ByAirlineName[f.AirlineName], f.Id)
+	next.ByDepartureDate[NewDateKey(f.DepartureTime)] = appendCopy(next.ByDepartureDate[NewDateKey(f.DepartureTime)], f.Id)
+	next.ByArrivalDate[NewDateKey(f.ArrivalTime)] = appendCopy(next.ByArrivalDate[NewDateKey(f.ArrivalTime)], f.Id)
+	next.ByTimeBucket[NewTimeBucket(f.DepartureTime)] = appendCopy(next.ByTimeBucket[NewTimeBucket(f.DepartureTime)], f.Id)
+	next.BySourceAirport[f.SourceAirportCode] = appendCopy(next.BySourceAirport[f.SourceAirportCode], f.Id)
+	routeKey := RouteKey{
+		Source: f.SourceAirportCode,
+		Dest:   f.DestinationAirportCode,
+	}
+	next.ByRoute[routeKey] = appendCopy(next.ByRoute[routeKey], f.Id)
+	next.AdjBySource[f.SourceAirportCode] = appendCopy(next.AdjBySource[f.SourceAirportCode], f.Id)
+
+	next.ListByPriceAsc = insertSorted(old.ListByPriceAsc, f.Id, func(a, b uuid.UUID) bool {
+		fa := old.FlightsByID[a]
+		fb := old.FlightsByID[b]
+
+		if fa.Price != fb.Price {
+			return fa.Price < fb.Price
+		}
+		return a.String() < b.String()
+	})
+	next.ListByDurationAsc = insertSorted(old.ListByDurationAsc, f.Id, func(a, b uuid.UUID) bool {
+		fa := old.FlightsByID[a]
+		fb := old.FlightsByID[b]
+
+		if fa.DurationInMins != fb.DurationInMins {
+			return fa.DurationInMins < fb.DurationInMins
+		}
+		return a.String() < b.String()
+	})
+	next.ListByDepartureTimeAsc = insertSorted(old.ListByDepartureTimeAsc, f.Id, func(a, b uuid.UUID) bool {
+		fa := old.FlightsByID[a]
+		fb := old.FlightsByID[b]
+
+		if !fa.DepartureTime.Equal(fb.DepartureTime) {
+			return fa.DepartureTime.Before(fb.DepartureTime)
+		}
+		return a.String() < b.String()
+	})
+
+	return next
+}
+
+func appendCopy(old []uuid.UUID, id uuid.UUID) []uuid.UUID {
+	next := make([]uuid.UUID, len(old)+1)
+	copy(next, old)
+	next[len(old)] = id
+	return next
+}
+
+func insertSorted(old []uuid.UUID, id uuid.UUID, less func(a, b uuid.UUID) bool) []uuid.UUID {
+	i := sort.Search(len(old), func(i int) bool { return less(id, old[i]) })
+	next := make([]uuid.UUID, len(old)+1)
+	copy(next, old[:i])
+	next[i] = id
+	copy(next[i+1:], old[i:])
+	return next
 }
