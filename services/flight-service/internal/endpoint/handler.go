@@ -26,6 +26,7 @@ func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth) chi.Router {
 	r := chi.NewRouter()
 	r.Get("/flight/{flightID}", h.getFlight)
 	r.Post("/admin/flight", h.createFlight)
+	r.Get("/flight/validate", h.validateFlights)
 	r.Group(func(r chi.Router) {
 		r.Use(auth_middlewares.Verifier(tokenAuth))
 		r.Use(auth_middlewares.Authenticator(tokenAuth))
@@ -76,4 +77,29 @@ func (h *Handler) createFlight(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *Handler) validateFlights(w http.ResponseWriter, r *http.Request) {
+	ids := r.URL.Query()["flight_id"]
+	flightIDs := make([]uuid.UUID, 0, len(ids))
+
+	if flightIDs == nil {
+		http.Error(w, "flight_id is required", http.StatusBadRequest)
+		return
+	}
+
+	for _, stringId := range ids {
+		id, err := uuid.Parse(stringId)
+		if err != nil {
+			http.Error(w, "invalid flight_id", http.StatusBadRequest)
+			return
+		}
+		flightIDs = append(flightIDs, id)
+	}
+	err := h.service.checkAllFlightIds(r.Context(), flightIDs)
+	if err != nil {
+		app_error.HandleError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

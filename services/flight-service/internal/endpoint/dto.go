@@ -2,8 +2,6 @@ package endpoint
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type SearchResponse struct {
@@ -19,7 +17,7 @@ type Route struct {
 }
 
 type Segment struct {
-	FlightID           uuid.UUID `json:"flight_id"`
+	FlightID           string    `json:"flight_id"`
 	FlightNumber       string    `json:"flight_number"`
 	AirlineName        string    `json:"airline_name"`
 	SourceAirport      string    `json:"source_airport"`
@@ -30,7 +28,7 @@ type Segment struct {
 }
 
 type GetFlightResponse struct {
-	FlightID               uuid.UUID `json:"flight_id"`
+	FlightID               string    `json:"flight_id"`
 	FlightNumber           string    `json:"flight_number"`
 	AirlineName            string    `json:"airline_name"`
 	AircraftType           string    `json:"aircraft_type"`

@@ -47,7 +47,7 @@ func (s *Service) getFlight(ctx context.Context, flightID uuid.UUID) (GetFlightR
 		return GetFlightResponse{}, err
 	}
 	return GetFlightResponse{
-		FlightID:               flightID,
+		FlightID:               flightID.String(),
 		FlightNumber:           flight.FlightNumber,
 		AirlineName:            flight.AirlineName,
 		AircraftType:           flight.AircraftType,
@@ -74,6 +74,17 @@ func (s *Service) createFlight(ctx context.Context, reqBody CreateFlightDTO) err
 	err = s.repo.createFlight(ctx, reqBody, resBody.SeatsLeft)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func (s *Service) checkAllFlightIds(ctx context.Context, flightIDs []uuid.UUID) error {
+	snap := s.registry.Get()
+	for _, id := range flightIDs {
+		_, ok := snap.FlightsByID[id]
+		if !ok {
+			return app_error.NotFound("flight not found", errors.New("could not find flight:"+id.String()))
+		}
 	}
 	return nil
 }
@@ -154,7 +165,7 @@ func dfs(snap *store.FlightsSnapshot, curAirport string, stops int, query Query,
 			continue
 		}
 		segment := Segment{
-			FlightID:           flightID,
+			FlightID:           flightID.String(),
 			FlightNumber:       flight.FlightNumber,
 			AirlineName:        flight.AirlineName,
 			SourceAirport:      flight.SourceAirportCode,
