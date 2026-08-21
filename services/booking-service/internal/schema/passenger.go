@@ -9,8 +9,7 @@ type Passenger struct {
 	LastName       string    `db:"last_name" json:"last_name"`
 	Age            int       `db:"age" json:"age"`
 	Gender         string    `db:"gender" json:"gender"`
-	PassportNumber *string   `db:"passport_number,omitempty" json:"passport_number,omitempty"`
-	SeatNumber     *string   `db:"seat_number,omitempty" json:"seat_number,omitempty"`
+	PassportNumber string    `db:"passport_number" json:"passport_number"`
 	CreatedAt      time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt      time.Time `db:"updated_at" json:"updated_at"`
 }

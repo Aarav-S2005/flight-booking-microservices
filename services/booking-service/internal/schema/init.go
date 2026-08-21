@@ -23,8 +23,8 @@ const (
 			booking_user_id UUID NOT NULL,
 			reservation_id UUID,
 			payment_id UUID,	
-			email TEXT,
-			phone TEXT,
+			email TEXT NOT NULL,
+			phone TEXT NOT NULL,
 			total_fare INTEGER NOT NULL DEFAULT 0,
 			status booking_status NOT NULL DEFAULT 'PAYMENT_PENDING',
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -34,21 +34,19 @@ const (
 
 	passengersTable = `
 		CREATE TABLE IF NOT EXISTS passengers (
-			passenger_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			booking_id UUID NOT NULL,
-			first_name VARCHAR(100) NOT NULL,
-			last_name VARCHAR(100) NOT NULL,
-			age INT NOT NULL CHECK (age >= 0),
-			gender VARCHAR(20) NOT NULL,
-			passport_number VARCHAR(50),
-			seat_number VARCHAR(20),
-			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-		    
-		    CONSTRAINT fk_passengers_booking
-				FOREIGN KEY (booking_id)
-				REFERENCES bookings(booking_id)
-				ON DELETE CASCADE
+		   passenger_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		   booking_id UUID NOT NULL,
+		   first_name VARCHAR(100) NOT NULL,
+		   last_name VARCHAR(100) NOT NULL,
+		   age int NOT NULL,
+		   gender VARCHAR(20) NOT NULL,
+		   passport_number VARCHAR(50) UNIQUE NOT NULL,		
+		   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		   CONSTRAINT fk_passengers_booking
+			  FOREIGN KEY (booking_id)
+			  REFERENCES bookings(booking_id)
+			  ON DELETE CASCADE
 		);
 	`
 

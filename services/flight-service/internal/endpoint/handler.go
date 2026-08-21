@@ -6,7 +6,6 @@ import (
 
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/store"
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
-	auth_middlewares "github.com/Aarav-S2005/flight-booking-microservices/shared/middlewares/auth-middlewares"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/utility"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
@@ -28,11 +27,7 @@ func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth) chi.Router {
 	r.Post("/admin/flight", h.createFlight)
 	r.Get("/flight/validate-multiple", h.validateFlights)
 	r.Get("/flight/{flightID}", h.validateFlightID)
-	r.Group(func(r chi.Router) {
-		r.Use(auth_middlewares.Verifier(tokenAuth))
-		r.Use(auth_middlewares.Authenticator(tokenAuth))
-		r.Get("/search", h.searchFlights)
-	})
+	r.Get("/search", h.searchFlights)
 	return r
 }
 

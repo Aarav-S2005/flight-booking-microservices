@@ -1,11 +1,193 @@
 package booking
 
-import "github.com/jackc/pgx/v5/pgxpool"
+import (
+	"context"
+	"errors"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+var (
+	ErrInsufficientSeatsLeft = errors.New("insufficient number of seats left")
+)
 
 type Repository struct {
 	db *pgxpool.Pool
 }
 
+type FlightRecord struct {
+	FlightID     uuid.UUID
+	TotalSeats   int
+	AircraftType string
+}
+
 func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
+}
+
+func (repo *Repository) bookTicketAndSave(ctx context.Context, reqBody BookTicketDTO, flightIDs []uuid.UUID, bookingUserID uuid.UUID) (uuid.UUID, error) {
+	tx, err := repo.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// acquiring lock on flightIDs that user wants to book
+	err = lockAndDecreaseSeats(ctx, tx, flightIDs, len(reqBody.PassengerDetails))
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	// creating a booking
+	bookingID, err := createBooking(ctx, tx, bookingUserID, reqBody.Email, reqBody.Phone, reqBody.TotalFare)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	// inserting passengers
+	err = insertAllPassengers(ctx, tx, reqBody.PassengerDetails, bookingID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	err = insertFlightSegments(ctx, tx, flightIDs, bookingID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, err
+	}
+	return bookingID, nil
+}
+
+func (repo *Repository) findAllMissingIDs(ctx context.Context, flightIDs []uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := repo.db.Query(ctx, `
+		SELECT id
+		FROM unnest($1::uuid[]) AS id
+		WHERE NOT EXISTS (
+			SELECT 1 FROM flights f WHERE f.flight_id = id
+		)
+	`, flightIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	missing := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		missing = append(missing, id)
+	}
+	return missing, rows.Err()
+}
+
+func (repo *Repository) existsByFlightID(ctx context.Context, flightID uuid.UUID) (bool, error) {
+	var exists bool
+	err := repo.db.QueryRow(
+		ctx,
+		"SELECT EXISTS (SELECT 1 FROM flights WHERE id = $1)",
+		flightID,
+	).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func (repo *Repository) addSingleFlight(ctx context.Context, flight FlightRecord) error {
+	_, err := repo.db.Exec(ctx, "insert into flights(flight_id, aircraft_type, seats_left, total_seats) values ($1, $2, $3, $4) on conflict (flight_id) do nothing", flight.FlightID, flight.AircraftType, flight.TotalSeats, flight.TotalSeats)
+	return err
+}
+
+// Booking Transaction Breakdown
+
+func lockAndDecreaseSeats(ctx context.Context, tx pgx.Tx, flightIDs []uuid.UUID, passengerCount int) error {
+	rows, err := tx.Query(ctx, `
+        WITH locked AS (
+            SELECT flight_id FROM flights
+            WHERE flight_id = ANY($1)
+            ORDER BY flight_id
+            FOR UPDATE
+        )
+        UPDATE flights f
+        SET seats_left = f.seats_left - $2
+        FROM locked l
+        WHERE f.flight_id = l.flight_id AND f.seats_left >= $2
+        RETURNING f.flight_id
+    `, flightIDs, passengerCount)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	updated := 0
+	for rows.Next() {
+		updated++
+	}
+	if err := rows.Err(); err != nil { // you were dropping this check — silent partial-read failures otherwise
+		return err
+	}
+	if updated != len(flightIDs) {
+		return ErrInsufficientSeatsLeft
+	}
+	return nil
+}
+
+func createBooking(ctx context.Context, tx pgx.Tx, bookingUserID uuid.UUID, email, phone string, totalFare int) (uuid.UUID, error) {
+	var bookingID uuid.UUID
+	err := tx.QueryRow(ctx, "insert into bookings(booking_user_id, email, phone, total_fare) values ($1, $2, $3, $4) returning booking_id", bookingUserID, email, phone, totalFare).Scan(&bookingID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return bookingID, nil
+}
+
+func insertAllPassengers(ctx context.Context, tx pgx.Tx, passengerDetails []PassengerDetails, bookingID uuid.UUID) error {
+	passengersRows := make([][]any, 0, len(passengerDetails))
+	for _, p := range passengerDetails {
+		passengersRows = append(passengersRows, []any{
+			bookingID,
+			p.FirstName,
+			p.LastName,
+			p.Age,
+			p.Gender,
+			p.PassportNumber,
+		})
+	}
+	_, err := tx.CopyFrom(
+		ctx,
+		pgx.Identifier{"passenger"},
+		[]string{
+			"booking_id",
+			"first_name",
+			"last_name",
+			"age",
+			"gender",
+			"passport_number",
+		},
+		pgx.CopyFromRows(passengersRows),
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func insertFlightSegments(ctx context.Context, tx pgx.Tx, flightIDs []uuid.UUID, bookingID uuid.UUID) error {
+	rows := make([][]any, 0, len(flightIDs))
+	for i, id := range flightIDs {
+		rows = append(rows, []any{bookingID, id, i + 1})
+	}
+	_, err := tx.CopyFrom(ctx,
+		pgx.Identifier{"flight_segments"},
+		[]string{"booking_id", "flight_id", "segment_order"},
+		pgx.CopyFromRows(rows),
+	)
+	return err
 }

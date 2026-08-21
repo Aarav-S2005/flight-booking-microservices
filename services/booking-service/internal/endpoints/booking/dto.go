@@ -1,24 +1,26 @@
 package booking
 
-import "github.com/google/uuid"
-
 type BookTicketDTO struct {
-	Email            *string             `json:"email"`
-	Phone            *string             `json:"phone"`
+	Email            string              `json:"email"`
+	Phone            string              `json:"phone"`
+	TotalFare        int                 `json:"total_fare"`
 	PassengerDetails []PassengerDetails  `json:"passenger_details"`
 	FlightSegments   []FlightSegmentsDTO `json:"flight_segments"`
 }
 
 type PassengerDetails struct {
-	FirstName      string  `json:"first_name"`
-	LastName       string  `json:"last_name"`
-	Age            int     `json:"age"`
-	Gender         string  `json:"gender"`
-	PassportNumber *string `json:"passport_number,omitempty"`
-	SeatNumber     *string `json:"seat_number,omitempty"`
+	FirstName      string `json:"first_name"`
+	LastName       string `json:"last_name"`
+	Age            int    `json:"age"`
+	Gender         string `json:"gender"`
+	PassportNumber string `json:"passport_number"`
 }
 
 type FlightSegmentsDTO struct {
-	FlightID     uuid.UUID `json:"flight_id"`
-	SegmentOrder int       `json:"segment_order"`
+	FlightID     string `json:"flight_id"`
+	SegmentOrder int    `json:"segment_order"`
+}
+
+type BookTicketResponseDTO struct {
+	bookingID string
 }
