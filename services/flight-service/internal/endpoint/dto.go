@@ -56,3 +56,8 @@ type CreateFlightDTO struct {
 type GetFlightSeatsFromBookingResponse struct {
 	SeatsLeft int `json:"seats_left"`
 }
+
+type ValidateFlightsResponseDTO struct {
+	FlightID     string `json:"flight_id"`
+	AircraftType string `json:"aircraft_type"`
+}

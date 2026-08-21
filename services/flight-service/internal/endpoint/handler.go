@@ -26,7 +26,8 @@ func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth) chi.Router {
 	r := chi.NewRouter()
 	r.Get("/flight/{flightID}", h.getFlight)
 	r.Post("/admin/flight", h.createFlight)
-	r.Get("/flight/validate", h.validateFlights)
+	r.Get("/flight/validate-multiple", h.validateFlights)
+	r.Get("/flight/{flightID}", h.validateFlightID)
 	r.Group(func(r chi.Router) {
 		r.Use(auth_middlewares.Verifier(tokenAuth))
 		r.Use(auth_middlewares.Authenticator(tokenAuth))
@@ -80,7 +81,7 @@ func (h *Handler) createFlight(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) validateFlights(w http.ResponseWriter, r *http.Request) {
-	ids := r.URL.Query()["flight_id"]
+	ids := r.URL.Query()["flight-id"]
 	flightIDs := make([]uuid.UUID, 0, len(ids))
 
 	if flightIDs == nil {
@@ -96,10 +97,29 @@ func (h *Handler) validateFlights(w http.ResponseWriter, r *http.Request) {
 		}
 		flightIDs = append(flightIDs, id)
 	}
-	err := h.service.checkAllFlightIds(r.Context(), flightIDs)
+	resBody, err := h.service.checkAllFlightIDs(r.Context(), flightIDs)
 	if err != nil {
 		app_error.HandleError(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	utility.ConvertStructToJSON(w, 200, resBody)
+}
+
+func (h *Handler) validateFlightID(w http.ResponseWriter, r *http.Request) {
+	flightID := chi.URLParam(r, "flight-id")
+	if flightID == "" {
+		app_error.HandleError(w, app_error.BadRequest("flight-id missing in URL", errors.New("flight-id required")))
+		return
+	}
+	flightIDUUID, err := uuid.Parse(flightID)
+	if err != nil {
+		app_error.HandleError(w, err)
+		return
+	}
+	resBody, err := h.service.checkFlightID(r.Context(), flightIDUUID)
+	if err != nil {
+		app_error.HandleError(w, err)
+		return
+	}
+	utility.ConvertStructToJSON(w, 200, resBody)
 }

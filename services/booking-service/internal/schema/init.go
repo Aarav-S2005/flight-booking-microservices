@@ -15,6 +15,7 @@ const (
 	END
 	$$;
 	`
+
 	bookingsTable = `
 		CREATE EXTENSION IF NOT EXISTS pgcrypto;
 		CREATE TABLE IF NOT EXISTS bookings (
@@ -34,7 +35,7 @@ const (
 	passengersTable = `
 		CREATE TABLE IF NOT EXISTS passengers (
 			passenger_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
+			booking_id UUID NOT NULL,
 			first_name VARCHAR(100) NOT NULL,
 			last_name VARCHAR(100) NOT NULL,
 			age INT NOT NULL CHECK (age >= 0),
@@ -76,7 +77,8 @@ const (
 		CREATE TABLE IF NOT EXISTS flights (
 			flight_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			aircraft_type VARCHAR(40) NOT NULL,
-			seats_left INT NOT NULL DEFAULT 0
+			seats_left INT NOT NULL,
+		    total_seats INT NOT NULL,
 			CHECK (seats_left >= 0),			
 		);
 	`

@@ -71,9 +71,9 @@ func (reg *Registry) AddFlight(flight schema.Flight) {
 
 func cloneForInsert(old *FlightsSnapshot, f schema.Flight) *FlightsSnapshot {
 	next := &FlightsSnapshot{
-		FlightsByID:     maps.Clone(old.FlightsByID),   // O(#flights) — see note below
-		AirportsByCode:  old.AirportsByCode,            // unchanged, share directly
-		ByAirlineName:   maps.Clone(old.ByAirlineName), // O(#distinct airlines)
+		FlightsByID:     maps.Clone(old.FlightsByID),
+		AirportsByCode:  old.AirportsByCode,
+		ByAirlineName:   maps.Clone(old.ByAirlineName),
 		ByDepartureDate: maps.Clone(old.ByDepartureDate),
 		ByArrivalDate:   maps.Clone(old.ByArrivalDate),
 		ByTimeBucket:    maps.Clone(old.ByTimeBucket),
@@ -81,7 +81,7 @@ func cloneForInsert(old *FlightsSnapshot, f schema.Flight) *FlightsSnapshot {
 		ByRoute:         maps.Clone(old.ByRoute),
 		AdjBySource:     maps.Clone(old.AdjBySource),
 
-		ListByPriceAsc:         old.ListByPriceAsc, // handled below
+		ListByPriceAsc:         old.ListByPriceAsc,
 		ListByDurationAsc:      old.ListByDurationAsc,
 		ListByDepartureTimeAsc: old.ListByDepartureTimeAsc,
 	}

@@ -93,15 +93,26 @@ func (s *Service) createFlight(ctx context.Context, reqBody CreateFlightDTO) err
 	return nil
 }
 
-func (s *Service) checkAllFlightIds(ctx context.Context, flightIDs []uuid.UUID) error {
+func (s *Service) checkAllFlightIDs(ctx context.Context, flightIDs []uuid.UUID) ([]ValidateFlightsResponseDTO, error) {
 	snap := s.registry.Get()
+	resBody := make([]ValidateFlightsResponseDTO, 0, len(flightIDs))
 	for _, id := range flightIDs {
-		_, ok := snap.FlightsByID[id]
+		f, ok := snap.FlightsByID[id]
 		if !ok {
-			return app_error.NotFound("flight not found", errors.New("could not find flight:"+id.String()))
+			return nil, app_error.NotFound("flight not found", errors.New("could not find flight:"+id.String()))
 		}
+		resBody = append(resBody, ValidateFlightsResponseDTO{FlightID: id.String(), AircraftType: f.AircraftType})
 	}
-	return nil
+	return resBody, nil
+}
+
+func (s *Service) checkFlightID(ctx context.Context, flightID uuid.UUID) (ValidateFlightsResponseDTO, error) {
+	snap := s.registry.Get()
+	f, ok := snap.FlightsByID[flightID]
+	if !ok {
+		return ValidateFlightsResponseDTO{}, app_error.NotFound("flight not found", errors.New("could not find flight:"+flightID.String()))
+	}
+	return ValidateFlightsResponseDTO{FlightID: flightID.String(), AircraftType: f.AircraftType}, nil
 }
 
 func searchValidRoutes(snap *store.FlightsSnapshot, query Query) []Route {

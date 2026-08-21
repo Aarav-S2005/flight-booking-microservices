@@ -20,6 +20,10 @@ func Conflict(message string, err error) *AppError {
 	return New(http.StatusConflict, message, err)
 }
 
+func UnprocessableEntity(message string, err error) *AppError {
+	return New(http.StatusUnprocessableEntity, message, err)
+}
+
 func InternalServer(err error) *AppError {
 	return New(http.StatusInternalServerError, "Internal Server Error", err)
 }
