@@ -34,6 +34,18 @@ func NewService(repo *Repository, flightServiceURL, reservationServiceURL string
 }
 
 func (s *Service) bookTicket(ctx context.Context, reqBody BookTicketDTO, bookingUserID uuid.UUID) (BookTicketResponseDTO, error) {
+	flightIDs := make([]string, 0, len(reqBody.FlightSegments))
+	for _, i := range reqBody.FlightSegments {
+		flightIDs = append(flightIDs, i.FlightID)
+	}
+	validationResp, err := s.client.R().SetBody(ValidateFareRequestDTO{TotalFare: reqBody.TotalFare, FlightIDs: flightIDs}).Post(s.flightServiceURL + "/flight/validate-fare")
+	if err != nil {
+		return BookTicketResponseDTO{}, err
+	}
+	if validationResp.StatusCode() != http.StatusOK {
+		return BookTicketResponseDTO{}, app_error.Conflict("total fare does not match requested fare", errors.New("total fare does not match requested fare"))
+	}
+
 	g, gctx := errgroup.WithContext(ctx)
 	for _, segment := range reqBody.FlightSegments {
 		g.Go(func() error {

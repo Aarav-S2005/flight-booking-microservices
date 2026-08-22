@@ -61,3 +61,8 @@ type ValidateFlightsResponseDTO struct {
 	FlightID     string `json:"flight_id"`
 	AircraftType string `json:"aircraft_type"`
 }
+
+type ValidateFareRequestDTO struct {
+	FlightIDs []string `json:"flight_ids"`
+	TotalFare int      `json:"total_fare"`
+}

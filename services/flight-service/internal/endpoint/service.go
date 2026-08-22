@@ -115,6 +115,26 @@ func (s *Service) checkFlightID(ctx context.Context, flightID uuid.UUID) (Valida
 	return ValidateFlightsResponseDTO{FlightID: flightID.String(), AircraftType: f.AircraftType}, nil
 }
 
+func (s *Service) validateFare(ctx context.Context, reqBody ValidateFareRequestDTO) error {
+	snap := s.registry.Get()
+	flightIDs := make([]uuid.UUID, 0, len(reqBody.FlightIDs))
+	for _, id := range reqBody.FlightIDs {
+		fuuid, err := uuid.Parse(id)
+		if err != nil {
+			return err
+		}
+		flightIDs = append(flightIDs, fuuid)
+	}
+	fare := snap.FlightsByID[flightIDs[0]].Price
+	for i := 1; i < len(flightIDs); i++ {
+		fare += snap.FlightsByID[flightIDs[i]].Price
+	}
+	if fare != reqBody.TotalFare {
+		return app_error.Conflict("fare requested does not match requested fare", errors.New("fare requested does not match requested fare"))
+	}
+	return nil
+}
+
 func searchValidRoutes(snap *store.FlightsSnapshot, query Query) []Route {
 	routes := make([]Route, 0)
 	dfs(snap, query.SourceAirport, 0, query, &routes, Route{}, 0, 0, make(map[string]bool))

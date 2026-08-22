@@ -24,3 +24,8 @@ type FlightSegmentsDTO struct {
 type BookTicketResponseDTO struct {
 	bookingID string
 }
+
+type ValidateFareRequestDTO struct {
+	FlightIDs []string `json:"flight_ids"`
+	TotalFare int      `json:"total_fare"`
+}

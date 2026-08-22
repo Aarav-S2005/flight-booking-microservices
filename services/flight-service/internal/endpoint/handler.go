@@ -26,8 +26,9 @@ func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth) chi.Router {
 	r.Get("/flight/{flightID}", h.getFlight)
 	r.Post("/admin/flight", h.createFlight)
 	r.Get("/flight/validate-multiple", h.validateFlights)
-	r.Get("/flight/{flightID}", h.validateFlightID)
+	r.Get("/flight/validate/{flightID}", h.validateFlightID)
 	r.Get("/search", h.searchFlights)
+	r.Post("/flight/validate-fare", h.validateFare)
 	return r
 }
 
@@ -117,4 +118,19 @@ func (h *Handler) validateFlightID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	utility.ConvertStructToJSON(w, 200, resBody)
+}
+
+func (h *Handler) validateFare(w http.ResponseWriter, r *http.Request) {
+	var reqBody ValidateFareRequestDTO
+	err := utility.ConvertJSONToStruct(r, &reqBody)
+	if err != nil {
+		app_error.HandleError(w, app_error.BadRequest("could not parse request body", err))
+		return
+	}
+	err = h.service.validateFare(r.Context(), reqBody)
+	if err != nil {
+		app_error.HandleError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
