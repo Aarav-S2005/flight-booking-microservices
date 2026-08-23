@@ -40,9 +40,7 @@ const (
 		   last_name VARCHAR(100) NOT NULL,
 		   age int NOT NULL,
 		   gender VARCHAR(20) NOT NULL,
-		   passport_number VARCHAR(50) UNIQUE NOT NULL,		
-		   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-		   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		   passport_number VARCHAR(50) UNIQUE NOT NULL,
 		   CONSTRAINT fk_passengers_booking
 			  FOREIGN KEY (booking_id)
 			  REFERENCES bookings(booking_id)

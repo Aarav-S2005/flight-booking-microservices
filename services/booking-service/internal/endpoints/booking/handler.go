@@ -9,14 +9,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 type Handler struct {
 	service *Service
 }
 
-func NewHandler(db *pgxpool.Pool, flightServiceURL, reservationServiceURL string) *Handler {
-	return &Handler{service: NewService(NewRepository(db), flightServiceURL, reservationServiceURL)}
+func NewHandler(db *pgxpool.Pool, flightServiceURL, reservationServiceURL string, rdb *redis.Client) *Handler {
+	return &Handler{service: NewService(NewRepository(db), flightServiceURL, reservationServiceURL, rdb)}
 }
 
 func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth) chi.Router {
@@ -27,7 +28,7 @@ func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth) chi.Router {
 	})
 	r.Post("/book", h.bookTicket)
 	r.Get("/booking", h.getAllBookings)
-	r.Get("/booking/{bookingId}", h.getBooking)
+	//r.Get("/booking/{bookingId}", h.getBooking)
 	return r
 }
 
@@ -55,6 +56,18 @@ func (h *Handler) bookTicket(w http.ResponseWriter, r *http.Request) {
 	utility.ConvertStructToJSON(w, 200, resBody)
 }
 
-func (h *Handler) getAllBookings(w http.ResponseWriter, r *http.Request) {}
+func (h *Handler) getAllBookings(w http.ResponseWriter, r *http.Request) {
+	bookingUserID, err := utility.UserIDFromContext(r.Context())
+	if err != nil {
+		app_error.HandleError(w, app_error.Unauthorized("failed to parse jwt claim", err))
+		return
+	}
+	resBody, err := h.service.getAllBookings(r.Context(), bookingUserID)
+	if err != nil {
+		app_error.HandleError(w, err)
+		return
+	}
+	utility.ConvertStructToJSON(w, 200, resBody)
+}
 
-func (h *Handler) getBooking(w http.ResponseWriter, r *http.Request) {}
+//func (h *Handler) getBooking(w http.ResponseWriter, r *http.Request) {}

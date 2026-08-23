@@ -1,5 +1,7 @@
 package booking
 
+import "time"
+
 type BookTicketDTO struct {
 	Email            string              `json:"email"`
 	Phone            string              `json:"phone"`
@@ -22,7 +24,32 @@ type FlightSegmentsDTO struct {
 }
 
 type BookTicketResponseDTO struct {
-	bookingID string
+	BookingID string `json:"booking_id"`
+}
+
+type GetAllBookingsDTO struct {
+	Bookings []GetBookingDTO `json:"bookings"`
+}
+
+type GetBookingDTO struct {
+	BookingID        string             `json:"booking_id"`
+	PassengerDetails []PassengerDetails `json:"passenger_details"`
+	FlightDetails    []FlightDetailsDTO `json:"flight_details"`
+	TotalFare        int                `json:"total_fare"`
+}
+
+type FlightDetailsDTO struct {
+	FlightNumber           string    `json:"flight_number"`
+	AirlineName            string    `json:"airline_name"`
+	AircraftType           string    `json:"aircraft_type"`
+	SourceAirportCode      string    `json:"source_airport_code"`
+	SourceAirportName      string    `json:"source_airport_name"`
+	DestinationAirportCode string    `json:"destination_airport_code"`
+	DestinationAirportName string    `json:"destination_airport_name"`
+	DepartureTime          time.Time `json:"departure_time"`
+	ArrivalTime            time.Time `json:"arrival_time"`
+	DurationInMins         int       `json:"duration"`
+	SegmentOrder           int       `json:"segment_order"`
 }
 
 type ValidateFareRequestDTO struct {

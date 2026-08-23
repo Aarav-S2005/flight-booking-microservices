@@ -11,6 +11,7 @@ import (
 
 var (
 	ErrInsufficientSeatsLeft = errors.New("insufficient number of seats left")
+	ErrBookingNotFound       = errors.New("booking not found")
 )
 
 type Repository struct {
@@ -103,6 +104,107 @@ func (repo *Repository) existsByFlightID(ctx context.Context, flightID uuid.UUID
 func (repo *Repository) addSingleFlight(ctx context.Context, flight FlightRecord) error {
 	_, err := repo.db.Exec(ctx, "insert into flights(flight_id, aircraft_type, seats_left, total_seats) values ($1, $2, $3, $4) on conflict (flight_id) do nothing", flight.FlightID, flight.AircraftType, flight.TotalSeats, flight.TotalSeats)
 	return err
+}
+
+func (repo *Repository) getAllFlightByBookingUserIDGroupedByBookingID(ctx context.Context, bookingUserID uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {
+	rows, err := repo.db.Query(ctx,
+		`select b.booking_id, fs.flight_id 
+			from flight_segments fs
+			join bookings b
+			on fs.booking_id = b.booking_id
+			where booking_user_id = $1 
+			order by b.booking_id, fs.segment_order`,
+		bookingUserID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	flightIDs := make(map[uuid.UUID][]uuid.UUID)
+	count := 0
+	for rows.Next() {
+		var flightID uuid.UUID
+		var bookingID uuid.UUID
+		if err := rows.Scan(&bookingID, &flightID); err != nil {
+			return nil, err
+		}
+		flightIDs[bookingID] = append(flightIDs[bookingID], flightID)
+		count++
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return nil, ErrBookingNotFound
+	}
+
+	return flightIDs, nil
+}
+
+func (repo *Repository) getAllPassengerByBookingUserIDGroupedByBookingID(ctx context.Context, bookingUserID uuid.UUID) (map[uuid.UUID][]PassengerDetails, error) {
+	rows, err := repo.db.Query(ctx, `
+		select b.booking_id, first_name, last_name, age, gender, passport_number
+		from passengers p
+		join bookings b
+		on p.booking_id = b.booking_id
+		where b.booking_user_id = $1
+		`,
+		bookingUserID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	passengerDetails := make(map[uuid.UUID][]PassengerDetails)
+
+	for rows.Next() {
+		var bookingID uuid.UUID
+		var firstName, lastName, gender, passportNumber string
+		var age int
+		if err := rows.Scan(&bookingID, &firstName, &lastName, &age, &gender, &passportNumber); err != nil {
+			return nil, err
+		}
+		passengerDetails[bookingID] = append(passengerDetails[bookingID], PassengerDetails{
+			FirstName:      firstName,
+			LastName:       lastName,
+			Gender:         gender,
+			PassportNumber: passportNumber,
+			Age:            age,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return passengerDetails, nil
+}
+
+func (repo *Repository) getAllTotalFaresByBookingUserIDGroupedByBookingID(ctx context.Context, bookingUserID uuid.UUID) (map[uuid.UUID]int, error) {
+	rows, err := repo.db.Query(ctx,
+		`select booking_id, total_fare 
+		from bookings 
+		where booking_user_id = $1
+		`,
+		bookingUserID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	totalFares := make(map[uuid.UUID]int)
+	for rows.Next() {
+		var bookingID uuid.UUID
+		var totalFare int
+		if err := rows.Scan(&bookingID, &totalFare); err != nil {
+			return nil, err
+		}
+		totalFares[bookingID] = totalFare
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return totalFares, nil
 }
 
 // Booking Transaction Breakdown

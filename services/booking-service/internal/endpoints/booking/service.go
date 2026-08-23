@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sync"
 
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
 )
@@ -17,12 +19,12 @@ type Service struct {
 	client                *resty.Client
 	flightServiceURL      string
 	reservationServiceURL string
+	rdb                   *redis.Client
+	flightGroup           singleflight.Group
 	// RabbitMQ also needed
-
-	flightGroup singleflight.Group
 }
 
-func NewService(repo *Repository, flightServiceURL, reservationServiceURL string) *Service {
+func NewService(repo *Repository, flightServiceURL, reservationServiceURL string, rdb *redis.Client) *Service {
 	client := resty.New().
 		SetHeader("Content-Type", "application/json")
 	return &Service{
@@ -30,15 +32,17 @@ func NewService(repo *Repository, flightServiceURL, reservationServiceURL string
 		client:                client,
 		flightServiceURL:      flightServiceURL,
 		reservationServiceURL: reservationServiceURL,
+		rdb:                   rdb,
+		flightGroup:           singleflight.Group{},
 	}
 }
 
 func (s *Service) bookTicket(ctx context.Context, reqBody BookTicketDTO, bookingUserID uuid.UUID) (BookTicketResponseDTO, error) {
-	flightIDs := make([]string, 0, len(reqBody.FlightSegments))
+	stringFlightIDs := make([]string, 0, len(reqBody.FlightSegments))
 	for _, i := range reqBody.FlightSegments {
-		flightIDs = append(flightIDs, i.FlightID)
+		stringFlightIDs = append(stringFlightIDs, i.FlightID)
 	}
-	validationResp, err := s.client.R().SetBody(ValidateFareRequestDTO{TotalFare: reqBody.TotalFare, FlightIDs: flightIDs}).Post(s.flightServiceURL + "/flight/validate-fare")
+	validationResp, err := s.client.R().SetBody(ValidateFareRequestDTO{TotalFare: reqBody.TotalFare, FlightIDs: stringFlightIDs}).Post(s.flightServiceURL + "/flight/validate-fare")
 	if err != nil {
 		return BookTicketResponseDTO{}, err
 	}
@@ -73,8 +77,57 @@ func (s *Service) bookTicket(ctx context.Context, reqBody BookTicketDTO, booking
 		}
 		return BookTicketResponseDTO{}, err
 	}
-	return BookTicketResponseDTO{bookingID: bookingID.String()}, nil
+
+	// send to notification, reservation and payment service using rabbitmq
+	return BookTicketResponseDTO{BookingID: bookingID.String()}, nil
 }
+
+func (s *Service) getAllBookings(ctx context.Context, bookingUserID uuid.UUID) (GetAllBookingsDTO, error) {
+	flightIDsGroupedByBookingID, err := s.repo.getAllFlightByBookingUserIDGroupedByBookingID(ctx, bookingUserID)
+	if err != nil {
+		if errors.Is(err, ErrBookingNotFound) {
+			return GetAllBookingsDTO{}, app_error.NotFound("booking not found", err)
+		}
+		return GetAllBookingsDTO{}, err
+	}
+	uniqueFlightIDs := computeUniqueFlightIDs(flightIDsGroupedByBookingID)
+	flightDetailsGroupedByFlightID, err := s.fetchFlightDetails(ctx, uniqueFlightIDs)
+	if err != nil {
+		return GetAllBookingsDTO{}, err
+	}
+
+	// save in redis to avoid repeated calls
+
+	passengerDetails, err := s.repo.getAllPassengerByBookingUserIDGroupedByBookingID(ctx, bookingUserID)
+	if err != nil {
+		return GetAllBookingsDTO{}, err
+	}
+
+	totalFaresGroupedByBookingID, err := s.repo.getAllTotalFaresByBookingUserIDGroupedByBookingID(ctx, bookingUserID)
+	if err != nil {
+		return GetAllBookingsDTO{}, err
+	}
+
+	bookings := make([]GetBookingDTO, 0, len(flightIDsGroupedByBookingID))
+	for bookingID, flightIDs := range flightIDsGroupedByBookingID {
+		tempFlightDetailsArray := make([]FlightDetailsDTO, 0, len(flightIDs))
+		for _, flightID := range flightIDs {
+			tempFlightDetailsArray = append(tempFlightDetailsArray, flightDetailsGroupedByFlightID[flightID])
+		}
+		bookings = append(bookings, GetBookingDTO{
+			BookingID:        bookingID.String(),
+			PassengerDetails: passengerDetails[bookingID],
+			FlightDetails:    tempFlightDetailsArray,
+			TotalFare:        totalFaresGroupedByBookingID[bookingID],
+		})
+	}
+
+	return GetAllBookingsDTO{
+		Bookings: bookings,
+	}, nil
+}
+
+// Helper
 
 func (s *Service) resolveFlight(ctx context.Context, flightID string) (FlightRecord, error) {
 	v, err, _ := s.flightGroup.Do(flightID, func() (interface{}, error) {
@@ -115,4 +168,34 @@ func (s *Service) resolveFlight(ctx context.Context, flightID string) (FlightRec
 		return FlightRecord{}, err
 	}
 	return v.(FlightRecord), nil
+}
+
+func (s *Service) fetchFlightDetails(ctx context.Context, flightIDs []uuid.UUID) (map[uuid.UUID]FlightDetailsDTO, error) {
+	g, gctx := errgroup.WithContext(ctx)
+	flightDetails := make(map[uuid.UUID]FlightDetailsDTO)
+	var mu sync.Mutex
+	for i, flightID := range flightIDs {
+		g.Go(func() error {
+			var flight FlightDetailsDTO
+			resp, err := s.client.R().SetContext(gctx).SetResult(&flight).Get(s.flightServiceURL + "/flight/" + flightID.String())
+			if err != nil {
+				return err
+			}
+			if resp.StatusCode() == http.StatusNotFound {
+				return app_error.NotFound("flight not found", err)
+			}
+			if resp.StatusCode() != http.StatusOK {
+				return app_error.NotFound("internal server error", err)
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			flight.SegmentOrder = i + 1
+			flightDetails[flightID] = flight
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	return flightDetails, nil
 }
