@@ -7,7 +7,15 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type Handler func(ctx context.Context, msg amqp.Delivery) error
+type Action int
+
+const (
+	Ack Action = iota
+	NackRequeue
+	NackDiscard
+)
+
+type Handler func(ctx context.Context, msg amqp.Delivery) Action
 
 type Consumer struct {
 	ch    *amqp.Channel
@@ -18,6 +26,7 @@ func NewConsumer(conn *Connection, queue string) *Consumer {
 	return &Consumer{ch: conn.Channel(), queue: queue}
 }
 
+// Consume starts a background goroutine consuming `queue` and returns
 func (c *Consumer) Consume(ctx context.Context, consumerTag string, prefetch int, handler Handler) error {
 	if err := c.ch.Qos(prefetch, 0, false); err != nil {
 		return fmt.Errorf("rabbitmq: qos failed: %w", err)
@@ -28,19 +37,26 @@ func (c *Consumer) Consume(ctx context.Context, consumerTag string, prefetch int
 		return fmt.Errorf("rabbitmq: consume failed: %w", err)
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case msg, ok := <-msgs:
-			if !ok {
-				return fmt.Errorf("rabbitmq: delivery channel closed")
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-msgs:
+				if !ok {
+					return
+				}
+				switch handler(ctx, msg) {
+				case Ack:
+					_ = msg.Ack(false)
+				case NackRequeue:
+					_ = msg.Nack(false, true)
+				case NackDiscard:
+					_ = msg.Nack(false, false)
+				}
 			}
-			if err := handler(ctx, msg); err != nil {
-				_ = msg.Nack(false, true)
-				continue
-			}
-			_ = msg.Ack(false)
 		}
-	}
+	}()
+
+	return nil
 }

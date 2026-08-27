@@ -12,6 +12,7 @@ import (
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/store"
 	dbInitializer "github.com/Aarav-S2005/flight-booking-microservices/shared/db"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/keys"
+	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq"
 	"github.com/go-chi/jwtauth/v5"
 )
 
@@ -44,27 +45,28 @@ func main() {
 	registry := store.NewRegistry(ctx, db)
 	log.Println("Registry initialized...")
 
-	rabbitmq, err := async.NewRabbitMQ(cfg.RabbitMQURL)
+	conn, err := rabbitmq.Connect(cfg.RabbitMQURL)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
 	log.Println("RabbitMQ initialized...")
-	defer rabbitmq.Close()
-	if err := rabbitmq.DeclareFlightEventsExchange(); err != nil {
+	defer conn.Close()
+
+	if err := conn.DeclareTopology(async.Topology()); err != nil {
 		log.Fatal(err)
 	}
 
-	if err := rabbitmq.DeclareFlightEventsQueue(); err != nil {
-		log.Fatal(err)
-	}
-	err = rabbitmq.ConsumeFlightEvents(ctx, func(event async.SeatUpdatedEvent) error {
-		return registry.ApplySeatUpdate(ctx, event.FlightID, event.NewSeat, event.Version, db)
-	})
-	log.Println("RabbitMQ consumer ready to consume...")
+	consumer := rabbitmq.NewConsumer(conn, async.Queue)
+
+	err = consumer.Consume(ctx, "flight-service-consumer", 20,
+		async.WrapSeatUpdatedHandler(func(e async.SeatUpdatedEvent) error {
+			return registry.ApplySeatUpdate(ctx, e.FlightID, e.NewSeat, e.Version, db)
+		}),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Println("RabbitMQ consumer ready to consume...")
 
 	pubKey, err := keys.GetPublicKey(cfg.PublicJwtSecretPath)
 	if err != nil {
