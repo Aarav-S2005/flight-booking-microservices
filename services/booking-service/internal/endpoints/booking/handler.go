@@ -5,6 +5,7 @@ import (
 
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
 	auth_middlewares "github.com/Aarav-S2005/flight-booking-microservices/shared/middlewares/auth-middlewares"
+	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/utility"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
@@ -16,8 +17,8 @@ type Handler struct {
 	service *Service
 }
 
-func NewHandler(db *pgxpool.Pool, flightServiceURL, reservationServiceURL string, rdb *redis.Client) *Handler {
-	return &Handler{service: NewService(NewRepository(db), flightServiceURL, reservationServiceURL, rdb)}
+func NewHandler(db *pgxpool.Pool, flightServiceURL, reservationServiceURL string, rdb *redis.Client, publisher *rabbitmq.Publisher) *Handler {
+	return &Handler{service: NewService(NewRepository(db), flightServiceURL, reservationServiceURL, rdb, publisher)}
 }
 
 func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth) chi.Router {

@@ -1,5 +1,11 @@
 package schema
 
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
 const (
 	bookingStatusEnum = `
 	DO $$
@@ -75,7 +81,32 @@ const (
 			aircraft_type VARCHAR(40) NOT NULL,
 			seats_left INT NOT NULL,
 		    total_seats INT NOT NULL,
+		    version BIGINT NOT NULL,
 			CHECK (seats_left >= 0),			
 		);
 	`
 )
+
+func InitSchema(ctx context.Context, db *pgxpool.Pool) error {
+	_, err := db.Exec(ctx, bookingStatusEnum)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(ctx, bookingsTable)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(ctx, passengersTable)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(ctx, flightSegmentTable)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(ctx, flightsTable)
+	if err != nil {
+		return err
+	}
+	return nil
+}

@@ -24,44 +24,50 @@ type FlightRecord struct {
 	AircraftType string
 }
 
+type SeatUpdate struct {
+	FlightID  uuid.UUID
+	SeatsLeft int
+	Version   uint64
+}
+
 func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-func (repo *Repository) bookTicketAndSave(ctx context.Context, reqBody BookTicketDTO, flightIDs []uuid.UUID, bookingUserID uuid.UUID) (uuid.UUID, error) {
+func (repo *Repository) bookTicketAndSave(ctx context.Context, reqBody BookTicketDTO, flightIDs []uuid.UUID, bookingUserID uuid.UUID) (uuid.UUID, []SeatUpdate, error) {
 	tx, err := repo.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, nil, err
 	}
 	defer tx.Rollback(ctx)
 
 	// acquiring lock on flightIDs that user wants to book
-	err = lockAndDecreaseSeats(ctx, tx, flightIDs, len(reqBody.PassengerDetails))
+	updatedSeats, err := lockAndDecreaseSeats(ctx, tx, flightIDs, len(reqBody.PassengerDetails))
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, nil, err
 	}
 
 	// creating a booking
 	bookingID, err := createBooking(ctx, tx, bookingUserID, reqBody.Email, reqBody.Phone, reqBody.TotalFare)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, nil, err
 	}
 
 	// inserting passengers
 	err = insertAllPassengers(ctx, tx, reqBody.PassengerDetails, bookingID)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, nil, err
 	}
 
 	err = insertFlightSegments(ctx, tx, flightIDs, bookingID)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, nil, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, nil, err
 	}
-	return bookingID, nil
+	return bookingID, updatedSeats, nil
 }
 
 func (repo *Repository) findAllMissingIDs(ctx context.Context, flightIDs []uuid.UUID) ([]uuid.UUID, error) {
@@ -102,7 +108,12 @@ func (repo *Repository) existsByFlightID(ctx context.Context, flightID uuid.UUID
 }
 
 func (repo *Repository) addSingleFlight(ctx context.Context, flight FlightRecord) error {
-	_, err := repo.db.Exec(ctx, "insert into flights(flight_id, aircraft_type, seats_left, total_seats) values ($1, $2, $3, $4) on conflict (flight_id) do nothing", flight.FlightID, flight.AircraftType, flight.TotalSeats, flight.TotalSeats)
+	_, err := repo.db.Exec(ctx, `
+		insert 
+		into flights(flight_id, aircraft_type, seats_left, total_seats, version) 
+		values ($1, $2, $3, $4, 0) 
+		on conflict (flight_id) do nothing
+		`, flight.FlightID, flight.AircraftType, flight.TotalSeats, flight.TotalSeats)
 	return err
 }
 
@@ -209,7 +220,7 @@ func (repo *Repository) getAllTotalFaresByBookingUserIDGroupedByBookingID(ctx co
 
 // Booking Transaction Breakdown
 
-func lockAndDecreaseSeats(ctx context.Context, tx pgx.Tx, flightIDs []uuid.UUID, passengerCount int) error {
+func lockAndDecreaseSeats(ctx context.Context, tx pgx.Tx, flightIDs []uuid.UUID, passengerCount int) ([]SeatUpdate, error) {
 	rows, err := tx.Query(ctx, `
         WITH locked AS (
             SELECT flight_id FROM flights
@@ -218,27 +229,31 @@ func lockAndDecreaseSeats(ctx context.Context, tx pgx.Tx, flightIDs []uuid.UUID,
             FOR UPDATE
         )
         UPDATE flights f
-        SET seats_left = f.seats_left - $2
+        SET seats_left = f.seats_left - $2, version = version + 1
         FROM locked l
         WHERE f.flight_id = l.flight_id AND f.seats_left >= $2
-        RETURNING f.flight_id
+        RETURNING f.flight_id, f.seats_left, f.version
     `, flightIDs, passengerCount)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rows.Close()
 
-	updated := 0
+	updated := make([]SeatUpdate, 0, len(flightIDs))
 	for rows.Next() {
-		updated++
+		var u SeatUpdate
+		if err := rows.Scan(&u.FlightID, &u.SeatsLeft, &u.Version); err != nil {
+			return nil, err
+		}
+		updated = append(updated, u)
 	}
-	if err := rows.Err(); err != nil { // you were dropping this check — silent partial-read failures otherwise
-		return err
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
-	if updated != len(flightIDs) {
-		return ErrInsufficientSeatsLeft
+	if len(updated) != len(flightIDs) {
+		return nil, ErrInsufficientSeatsLeft
 	}
-	return nil
+	return updated, nil
 }
 
 func createBooking(ctx context.Context, tx pgx.Tx, bookingUserID uuid.UUID, email, phone string, totalFare int) (uuid.UUID, error) {

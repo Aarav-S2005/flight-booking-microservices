@@ -7,6 +7,8 @@ import (
 	"sync"
 
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
+	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq"
+	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq/contract"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -20,11 +22,10 @@ type Service struct {
 	flightServiceURL      string
 	reservationServiceURL string
 	rdb                   *redis.Client
-	flightGroup           singleflight.Group
-	// RabbitMQ also needed
+	publisher             *rabbitmq.Publisher
 }
 
-func NewService(repo *Repository, flightServiceURL, reservationServiceURL string, rdb *redis.Client) *Service {
+func NewService(repo *Repository, flightServiceURL, reservationServiceURL string, rdb *redis.Client, publisher *rabbitmq.Publisher) *Service {
 	client := resty.New().
 		SetHeader("Content-Type", "application/json")
 	return &Service{
@@ -33,7 +34,7 @@ func NewService(repo *Repository, flightServiceURL, reservationServiceURL string
 		flightServiceURL:      flightServiceURL,
 		reservationServiceURL: reservationServiceURL,
 		rdb:                   rdb,
-		flightGroup:           singleflight.Group{},
+		publisher:             publisher,
 	}
 }
 
@@ -70,7 +71,7 @@ func (s *Service) bookTicket(ctx context.Context, reqBody BookTicketDTO, booking
 		flightIDs = append(flightIDs, flightIDUUID)
 	}
 
-	bookingID, err := s.repo.bookTicketAndSave(ctx, reqBody, flightIDs, bookingUserID)
+	bookingID, updatedSeats, err := s.repo.bookTicketAndSave(ctx, reqBody, flightIDs, bookingUserID)
 	if err != nil {
 		if errors.Is(err, ErrInsufficientSeatsLeft) {
 			return BookTicketResponseDTO{}, app_error.Conflict("insufficient seats left", err)
@@ -78,7 +79,17 @@ func (s *Service) bookTicket(ctx context.Context, reqBody BookTicketDTO, booking
 		return BookTicketResponseDTO{}, err
 	}
 
-	// send to notification, reservation and payment service using rabbitmq
+	for _, updatedSeat := range updatedSeats {
+		err = s.publisher.Publish(ctx, contract.FlightSeatUpdateRoutingKey, contract.SeatUpdatedEvent{
+			FlightID: updatedSeat.FlightID.String(),
+			NewSeat:  updatedSeat.SeatsLeft,
+			Version:  updatedSeat.Version,
+		})
+	}
+	err = s.publisher.Publish(ctx, contract.CreateReservationEventsRoutingKey, contract.CreateReservationEvent{
+		BookingID:      bookingID.String(),
+		PassengerCount: len(reqBody.PassengerDetails),
+	})
 	return BookTicketResponseDTO{BookingID: bookingID.String()}, nil
 }
 
@@ -130,7 +141,8 @@ func (s *Service) getAllBookings(ctx context.Context, bookingUserID uuid.UUID) (
 // Helper
 
 func (s *Service) resolveFlight(ctx context.Context, flightID string) (FlightRecord, error) {
-	v, err, _ := s.flightGroup.Do(flightID, func() (interface{}, error) {
+	flightGroup := singleflight.Group{}
+	v, err, _ := flightGroup.Do(flightID, func() (interface{}, error) {
 		flightIDUUID, err := uuid.Parse(flightID)
 		if err != nil {
 			return nil, err

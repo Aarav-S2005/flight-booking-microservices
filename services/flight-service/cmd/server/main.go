@@ -15,6 +15,7 @@ import (
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq/contract"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -61,7 +62,11 @@ func main() {
 
 	err = consumer.Consume(ctx, "flight-service-consumer", 20,
 		async.WrapSeatUpdatedHandler(func(e contract.SeatUpdatedEvent) error {
-			return registry.ApplySeatUpdate(ctx, e.FlightID, e.NewSeat, e.Version, db)
+			flightUUID, err := uuid.Parse(e.FlightID)
+			if err != nil {
+				return err
+			}
+			return registry.ApplySeatUpdate(ctx, flightUUID, e.NewSeat, e.Version, db)
 		}),
 	)
 	if err != nil {

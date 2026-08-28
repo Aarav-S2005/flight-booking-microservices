@@ -7,4 +7,5 @@ type Flight struct {
 	AircraftType string    `db:"aircraft_type"`
 	SeatsLeft    int       `db:"seats_left"`
 	TotalSeats   int       `db:"total_seats"`
+	Version      uint64    `db:"version"`
 }
