@@ -6,39 +6,31 @@ import (
 	"log"
 
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq"
-	"github.com/google/uuid"
+	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq/contract"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const (
-	Exchange   = "flight.events"
-	Queue      = "flight-service.events"
-	RoutingKey = "flight.seat.updated"
+	Queue = "flight-service.events"
 )
-
-type SeatUpdatedEvent struct {
-	FlightID uuid.UUID `json:"flightId"`
-	NewSeat  int       `json:"newSeat"`
-	Version  uint64    `json:"version"`
-}
 
 func Topology() rabbitmq.Topology {
 	return rabbitmq.Topology{
 		Exchanges: []rabbitmq.ExchangeConfig{
-			{Name: Exchange, Kind: "topic", Durable: true},
+			{Name: contract.FlightUpdateEventsExchange, Kind: "topic", Durable: true},
 		},
 		Queues: []rabbitmq.QueueConfig{
 			{Name: Queue, Durable: true},
 		},
 		Bindings: []rabbitmq.BindingConfig{
-			{Queue: Queue, Exchange: Exchange, RoutingKey: RoutingKey},
+			{Queue: Queue, Exchange: contract.FlightUpdateEventsExchange, RoutingKey: contract.FlightSeatUpdateRoutingKey},
 		},
 	}
 }
 
-func WrapSeatUpdatedHandler(handler func(SeatUpdatedEvent) error) rabbitmq.Handler {
+func WrapSeatUpdatedHandler(handler func(contract.SeatUpdatedEvent) error) rabbitmq.Handler {
 	return func(ctx context.Context, msg amqp.Delivery) rabbitmq.Action {
-		var event SeatUpdatedEvent
+		var event contract.SeatUpdatedEvent
 		if err := json.Unmarshal(msg.Body, &event); err != nil {
 			log.Printf("bad payload, discarding: %v", err)
 			return rabbitmq.NackDiscard

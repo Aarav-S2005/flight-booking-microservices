@@ -13,6 +13,7 @@ import (
 	dbInitializer "github.com/Aarav-S2005/flight-booking-microservices/shared/db"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/keys"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq"
+	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq/contract"
 	"github.com/go-chi/jwtauth/v5"
 )
 
@@ -59,7 +60,7 @@ func main() {
 	consumer := rabbitmq.NewConsumer(conn, async.Queue)
 
 	err = consumer.Consume(ctx, "flight-service-consumer", 20,
-		async.WrapSeatUpdatedHandler(func(e async.SeatUpdatedEvent) error {
+		async.WrapSeatUpdatedHandler(func(e contract.SeatUpdatedEvent) error {
 			return registry.ApplySeatUpdate(ctx, e.FlightID, e.NewSeat, e.Version, db)
 		}),
 	)
