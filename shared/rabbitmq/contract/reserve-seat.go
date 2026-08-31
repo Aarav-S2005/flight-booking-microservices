@@ -11,6 +11,7 @@ const (
 )
 
 type CreateReservationEvent struct {
-	BookingID      string `json:"booking_id"`
-	PassengerCount int    `json:"passenger_count"`
+	BookingID      string   `json:"booking_id"`
+	PassengerIDs   []string `json:"passenger_ids"`
+	FlightSegments []string `json:"flight_segments"`
 }

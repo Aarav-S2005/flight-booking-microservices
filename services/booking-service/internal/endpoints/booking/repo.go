@@ -3,6 +3,8 @@ package booking
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -34,40 +36,40 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-func (repo *Repository) bookTicketAndSave(ctx context.Context, reqBody BookTicketDTO, flightIDs []uuid.UUID, bookingUserID uuid.UUID) (uuid.UUID, []SeatUpdate, error) {
+func (repo *Repository) bookTicketAndSave(ctx context.Context, reqBody BookTicketDTO, flightIDs []uuid.UUID, bookingUserID uuid.UUID) (uuid.UUID, []SeatUpdate, []uuid.UUID, error) {
 	tx, err := repo.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return uuid.Nil, nil, err
+		return uuid.Nil, nil, nil, err
 	}
 	defer tx.Rollback(ctx)
 
 	// acquiring lock on flightIDs that user wants to book
 	updatedSeats, err := lockAndDecreaseSeats(ctx, tx, flightIDs, len(reqBody.PassengerDetails))
 	if err != nil {
-		return uuid.Nil, nil, err
+		return uuid.Nil, nil, nil, err
 	}
 
 	// creating a booking
 	bookingID, err := createBooking(ctx, tx, bookingUserID, reqBody.Email, reqBody.Phone, reqBody.TotalFare)
 	if err != nil {
-		return uuid.Nil, nil, err
+		return uuid.Nil, nil, nil, err
 	}
 
 	// inserting passengers
-	err = insertAllPassengers(ctx, tx, reqBody.PassengerDetails, bookingID)
+	passengerIDs, err := insertAllPassengers(ctx, tx, reqBody.PassengerDetails, bookingID)
 	if err != nil {
-		return uuid.Nil, nil, err
+		return uuid.Nil, nil, nil, err
 	}
 
 	err = insertFlightSegments(ctx, tx, flightIDs, bookingID)
 	if err != nil {
-		return uuid.Nil, nil, err
+		return uuid.Nil, nil, nil, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return uuid.Nil, nil, err
+		return uuid.Nil, nil, nil, err
 	}
-	return bookingID, updatedSeats, nil
+	return bookingID, updatedSeats, passengerIDs, nil
 }
 
 func (repo *Repository) findAllMissingIDs(ctx context.Context, flightIDs []uuid.UUID) ([]uuid.UUID, error) {
@@ -265,35 +267,78 @@ func createBooking(ctx context.Context, tx pgx.Tx, bookingUserID uuid.UUID, emai
 	return bookingID, nil
 }
 
-func insertAllPassengers(ctx context.Context, tx pgx.Tx, passengerDetails []PassengerDetails, bookingID uuid.UUID) error {
-	passengersRows := make([][]any, 0, len(passengerDetails))
-	for _, p := range passengerDetails {
-		passengersRows = append(passengersRows, []any{
+func insertAllPassengers(
+	ctx context.Context,
+	tx pgx.Tx,
+	passengerDetails []PassengerDetails,
+	bookingID uuid.UUID,
+) ([]uuid.UUID, error) {
+	if len(passengerDetails) == 0 {
+		return []uuid.UUID{}, nil
+	}
+
+	values := make([]string, 0, len(passengerDetails))
+	args := make([]any, 0, len(passengerDetails)*6)
+
+	for i, p := range passengerDetails {
+		offset := i * 6
+
+		values = append(values, fmt.Sprintf(
+			"($%d, $%d, $%d, $%d, $%d, $%d)",
+			offset+1,
+			offset+2,
+			offset+3,
+			offset+4,
+			offset+5,
+			offset+6,
+		))
+
+		args = append(args,
 			bookingID,
 			p.FirstName,
 			p.LastName,
 			p.Age,
 			p.Gender,
 			p.PassportNumber,
-		})
+		)
 	}
-	_, err := tx.CopyFrom(
-		ctx,
-		pgx.Identifier{"passenger"},
-		[]string{
-			"booking_id",
-			"first_name",
-			"last_name",
-			"age",
-			"gender",
-			"passport_number",
-		},
-		pgx.CopyFromRows(passengersRows),
-	)
+
+	query := fmt.Sprintf(`
+        INSERT INTO passenger (
+            booking_id,
+            first_name,
+            last_name,
+            age,
+            gender,
+            passport_number
+        )
+        VALUES %s
+        RETURNING id
+    `, strings.Join(values, ", "))
+
+	rows, err := tx.Query(ctx, query, args...)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	defer rows.Close()
+
+	passengerIDs := make([]uuid.UUID, 0, len(passengerDetails))
+
+	for rows.Next() {
+		var id uuid.UUID
+
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+
+		passengerIDs = append(passengerIDs, id)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return passengerIDs, nil
 }
 
 func insertFlightSegments(ctx context.Context, tx pgx.Tx, flightIDs []uuid.UUID, bookingID uuid.UUID) error {

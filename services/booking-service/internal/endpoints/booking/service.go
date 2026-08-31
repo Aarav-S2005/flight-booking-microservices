@@ -71,7 +71,7 @@ func (s *Service) bookTicket(ctx context.Context, reqBody BookTicketDTO, booking
 		flightIDs = append(flightIDs, flightIDUUID)
 	}
 
-	bookingID, updatedSeats, err := s.repo.bookTicketAndSave(ctx, reqBody, flightIDs, bookingUserID)
+	bookingID, updatedSeats, passengerIDs, err := s.repo.bookTicketAndSave(ctx, reqBody, flightIDs, bookingUserID)
 	if err != nil {
 		if errors.Is(err, ErrInsufficientSeatsLeft) {
 			return BookTicketResponseDTO{}, app_error.Conflict("insufficient seats left", err)
@@ -88,7 +88,8 @@ func (s *Service) bookTicket(ctx context.Context, reqBody BookTicketDTO, booking
 	}
 	err = s.publisher.Publish(ctx, contract.CreateReservationEventsRoutingKey, contract.CreateReservationEvent{
 		BookingID:      bookingID.String(),
-		PassengerCount: len(reqBody.PassengerDetails),
+		PassengerIDs:   UUIDsToStrings(passengerIDs),
+		FlightSegments: stringFlightIDs,
 	})
 	return BookTicketResponseDTO{BookingID: bookingID.String()}, nil
 }
