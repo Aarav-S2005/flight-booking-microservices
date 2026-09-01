@@ -19,24 +19,29 @@ const (
 	reservationSchema = `
 		CREATE EXTENSION IF NOT EXISTS pgcrypto;
 		CREATE TABLE IF NOT EXISTS reservation (
-		  	reservation_id UUID PRIMARY KEY,
+		  	reservation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			booking_id UUID NOT NULL UNIQUE,
 			passenger_count INTEGER NOT NULL
 		)
 	`
 	reservationFlightsSchema = `
 		create table reservation_flights (
-		    reservation_id UUID NOT NULL REFERENCES reservations(id) ON DELETE CASCADE,
+		    reservation_id UUID NOT NULL REFERENCES reservation(reservation_id) ON DELETE CASCADE,
 			flight_id UUID NOT NULL,
-			segment_number INTEGER NOT NULL CHECK (segment_number > 0)
+			aircraft_type VARCHAR(12) NOT NULL,
+			flight_departure_time TIMESTAMP NOT NULL,
+			segment_number INTEGER NOT NULL CHECK (segment_number > 0),
+			PRIMARY KEY (reservation_id, flight_id, segment_number)
 		)
 	`
 	seatAllocationSchema = `
 		CREATE TABLE IF NOT EXISTS seat_allocation (
-		    reservation_id UUID NOT NULL REFERENCES reservations(id)ON DELETE CASCADE,
+		    reservation_id UUID NOT NULL REFERENCES reservation(reservation_id) ON DELETE CASCADE,
 			flight_id UUID NOT NULL,
-		    seat_alloted varchar(4) NOT NULL,
+		    seat_allocated varchar(4) NOT NULL,  -- will be represented like "12A" "27E" and will pe parsed and split in repo layer
 		    passenger_id UUID NOT NULL,
+		    UNIQUE (reservation_id, flight_id, passenger_id),
+		    UNIQUE (flight_id, seat_allocated)
 		)
 	`
 )
@@ -46,8 +51,15 @@ func InitSchema(ctx context.Context, db *pgxpool.Pool) error {
 	if _, err := db.Exec(ctx, aircraftSchema); err != nil {
 		return err
 	}
-	if err := SeedAircraft(ctx, db); err != nil {
+	var exists bool
+	err := db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM aircraft)`).Scan(&exists)
+	if err != nil {
 		return err
+	}
+	if !exists {
+		if err := SeedAircraft(ctx, db); err != nil {
+			return err
+		}
 	}
 	if _, err := db.Exec(ctx, aircraftSchema); err != nil {
 		return err
@@ -79,13 +91,13 @@ func SeedAircraft(ctx context.Context, pool *pgxpool.Pool) error {
 		},
 		{
 			aircraftType: "B737-MAX8",
-			totalSeats:   178,
+			totalSeats:   180,
 			columns:      []string{"A", "B", "C", "D", "E", "F"},
 			totalRows:    30,
 		},
 		{
 			aircraftType: "B747",
-			totalSeats:   416,
+			totalSeats:   420,
 			columns:      []string{"A", "B", "C", "D", "E", "F", "G", "H", "J", "K"},
 			totalRows:    42,
 		},
@@ -97,31 +109,31 @@ func SeedAircraft(ctx context.Context, pool *pgxpool.Pool) error {
 		},
 		{
 			aircraftType: "B777",
-			totalSeats:   396,
+			totalSeats:   400,
 			columns:      []string{"A", "B", "C", "D", "E", "F", "G", "H", "J", "K"},
 			totalRows:    40,
 		},
 		{
 			aircraftType: "B777-300",
-			totalSeats:   396,
+			totalSeats:   400,
 			columns:      []string{"A", "B", "C", "D", "E", "F", "G", "H", "J", "K"},
 			totalRows:    40,
 		},
 		{
 			aircraftType: "B777-300ER",
-			totalSeats:   396,
+			totalSeats:   400,
 			columns:      []string{"A", "B", "C", "D", "E", "F", "G", "H", "J", "K"},
 			totalRows:    40,
 		},
 		{
 			aircraftType: "B787-9",
-			totalSeats:   296,
+			totalSeats:   297,
 			columns:      []string{"A", "B", "C", "D", "E", "F", "G", "H", "J"},
 			totalRows:    33,
 		},
 		{
 			aircraftType: "B787-10",
-			totalSeats:   330,
+			totalSeats:   333,
 			columns:      []string{"A", "B", "C", "D", "E", "F", "G", "H", "J"},
 			totalRows:    37,
 		},
@@ -135,37 +147,37 @@ func SeedAircraft(ctx context.Context, pool *pgxpool.Pool) error {
 		},
 		{
 			aircraftType: "A321",
-			totalSeats:   220,
+			totalSeats:   222,
 			columns:      []string{"A", "B", "C", "D", "E", "F"},
 			totalRows:    37,
 		},
 		{
 			aircraftType: "A330",
-			totalSeats:   300,
+			totalSeats:   304,
 			columns:      []string{"A", "B", "C", "D", "E", "F", "G", "H"},
 			totalRows:    38,
 		},
 		{
 			aircraftType: "A340",
-			totalSeats:   350,
+			totalSeats:   352,
 			columns:      []string{"A", "B", "C", "D", "E", "F", "G", "H"},
 			totalRows:    44,
 		},
 		{
 			aircraftType: "A350-900",
-			totalSeats:   325,
+			totalSeats:   324,
 			columns:      []string{"A", "B", "C", "D", "E", "F", "G", "H", "J"},
 			totalRows:    36,
 		},
 		{
 			aircraftType: "A350-1000",
-			totalSeats:   366,
+			totalSeats:   370,
 			columns:      []string{"A", "B", "C", "D", "E", "F", "G", "H", "J", "K"},
 			totalRows:    37,
 		},
 		{
 			aircraftType: "A380-800",
-			totalSeats:   525,
+			totalSeats:   530,
 			columns:      []string{"A", "B", "C", "D", "E", "F", "G", "H", "J", "K"},
 			totalRows:    53,
 		},

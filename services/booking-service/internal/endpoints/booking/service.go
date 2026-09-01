@@ -26,8 +26,7 @@ type Service struct {
 }
 
 func NewService(repo *Repository, flightServiceURL, reservationServiceURL string, rdb *redis.Client, publisher *rabbitmq.Publisher) *Service {
-	client := resty.New().
-		SetHeader("Content-Type", "application/json")
+	client := resty.New().SetHeader("Content-Type", "application/json")
 	return &Service{
 		repo:                  repo,
 		client:                client,
