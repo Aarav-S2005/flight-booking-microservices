@@ -1,4 +1,4 @@
-package schema
+package database
 
 type Airport struct {
 	AirportCode string `db:"airport_code"`

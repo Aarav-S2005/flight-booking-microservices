@@ -7,8 +7,8 @@ import (
 
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/config"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/async"
+	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/database"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/endpoint"
-	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/schema"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/store"
 	dbInitializer "github.com/Aarav-S2005/flight-booking-microservices/shared/db"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/keys"
@@ -37,7 +37,7 @@ func main() {
 	}
 	defer db.Close()
 
-	err = schema.InitSchema(ctx, db)
+	err = database.InitSchema(ctx, db)
 	if err != nil {
 		log.Fatal(err)
 		return

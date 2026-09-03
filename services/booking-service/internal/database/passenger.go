@@ -1,4 +1,4 @@
-package schema
+package database
 
 type Passenger struct {
 	PassengerID    string `db:"passenger_id" json:"passenger_id"`

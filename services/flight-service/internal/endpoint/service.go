@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/schema"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/store"
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
 	"github.com/go-resty/resty/v2"
@@ -76,7 +75,7 @@ func (s *Service) createFlight(ctx context.Context, reqBody CreateFlightDTO) err
 	if err != nil {
 		return err
 	}
-	flight := schema.Flight{
+	flight := database.Flight{
 		Id:                     flightID,
 		FlightNumber:           reqBody.FlightNumber,
 		AirlineName:            reqBody.AirlineName,

@@ -7,8 +7,8 @@ import (
 
 	"github.com/Aarav-S2005/flight-booking-microservices/services/booking-service/config"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/booking-service/internal/async"
+	"github.com/Aarav-S2005/flight-booking-microservices/services/booking-service/internal/database"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/booking-service/internal/endpoints/booking"
-	"github.com/Aarav-S2005/flight-booking-microservices/services/booking-service/internal/schema"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/db"
 	dbInitializer "github.com/Aarav-S2005/flight-booking-microservices/shared/db"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/keys"
@@ -39,7 +39,7 @@ func main() {
 	defer db.Close()
 	log.Println("Connected to postgres...")
 
-	err = schema.InitSchema(ctx, db)
+	err = database.InitSchema(ctx, db)
 	if err != nil {
 		log.Fatal(err)
 		return

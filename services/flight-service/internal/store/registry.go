@@ -8,7 +8,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/schema"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -61,7 +60,7 @@ func (reg *Registry) ApplySeatUpdate(ctx context.Context, flightID uuid.UUID, ne
 	return nil
 }
 
-func (reg *Registry) AddFlight(flight schema.Flight) {
+func (reg *Registry) AddFlight(flight database.Flight) {
 	reg.mu.Lock()
 	defer reg.mu.Unlock()
 	old := reg.snap
@@ -69,7 +68,7 @@ func (reg *Registry) AddFlight(flight schema.Flight) {
 	reg.snap = next
 }
 
-func cloneForInsert(old *FlightsSnapshot, f schema.Flight) *FlightsSnapshot {
+func cloneForInsert(old *FlightsSnapshot, f database.Flight) *FlightsSnapshot {
 	next := &FlightsSnapshot{
 		FlightsByID:     maps.Clone(old.FlightsByID),
 		AirportsByCode:  old.AirportsByCode,

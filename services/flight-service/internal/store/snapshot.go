@@ -3,7 +3,6 @@ package store
 import (
 	"time"
 
-	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/schema"
 	"github.com/google/uuid"
 )
 
@@ -29,8 +28,8 @@ type RouteKey struct {
 }
 
 type FlightsSnapshot struct {
-	FlightsByID    map[uuid.UUID]schema.Flight
-	AirportsByCode map[string]schema.Airport
+	FlightsByID    map[uuid.UUID]database.Flight
+	AirportsByCode map[string]database.Airport
 
 	ByAirlineName   map[string][]uuid.UUID
 	ByDepartureDate map[DateKey][]uuid.UUID

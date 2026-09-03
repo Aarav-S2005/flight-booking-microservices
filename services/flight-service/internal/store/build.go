@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/schema"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,8 +21,8 @@ func buildSnapShot(ctx context.Context, db *pgxpool.Pool) (*FlightsSnapshot, err
 	}
 
 	snapshot := FlightsSnapshot{
-		FlightsByID:            make(map[uuid.UUID]schema.Flight),
-		AirportsByCode:         make(map[string]schema.Airport),
+		FlightsByID:            make(map[uuid.UUID]database.Flight),
+		AirportsByCode:         make(map[string]database.Airport),
 		ByAirlineName:          make(map[string][]uuid.UUID),
 		ByDepartureDate:        make(map[DateKey][]uuid.UUID),
 		ByArrivalDate:          make(map[DateKey][]uuid.UUID),
@@ -89,14 +88,14 @@ func buildSnapShot(ctx context.Context, db *pgxpool.Pool) (*FlightsSnapshot, err
 	return &snapshot, nil
 }
 
-func getAllAirportsFromDB(ctx context.Context, db *pgxpool.Pool) ([]schema.Airport, error) {
+func getAllAirportsFromDB(ctx context.Context, db *pgxpool.Pool) ([]database.Airport, error) {
 	rows, err := db.Query(ctx, "SELECT * FROM airports")
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}
 	defer rows.Close()
 
-	airports, err := pgx.CollectRows(rows, pgx.RowToStructByName[schema.Airport])
+	airports, err := pgx.CollectRows(rows, pgx.RowToStructByName[database.Airport])
 	if err != nil {
 		return nil, fmt.Errorf("collect failed: %w", err)
 	}
@@ -104,7 +103,7 @@ func getAllAirportsFromDB(ctx context.Context, db *pgxpool.Pool) ([]schema.Airpo
 	return airports, nil
 }
 
-func getFlightsFromDB(ctx context.Context, db *pgxpool.Pool) ([]schema.Flight, error) {
+func getFlightsFromDB(ctx context.Context, db *pgxpool.Pool) ([]database.Flight, error) {
 	now := time.Now()
 	today := now
 	after45Days := now.AddDate(0, 0, 45)
@@ -113,7 +112,7 @@ func getFlightsFromDB(ctx context.Context, db *pgxpool.Pool) ([]schema.Flight, e
 		return nil, fmt.Errorf("query failed: %w", err)
 	}
 	defer rows.Close()
-	flights, err := pgx.CollectRows(rows, pgx.RowToStructByName[schema.Flight])
+	flights, err := pgx.CollectRows(rows, pgx.RowToStructByName[database.Flight])
 	if err != nil {
 		return nil, fmt.Errorf("collect failed: %w", err)
 	}
