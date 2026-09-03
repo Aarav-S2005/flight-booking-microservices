@@ -11,26 +11,26 @@ import (
 )
 
 const (
-	Queue = "flight-service.events"
+	Queue = "flight-service.booking-events"
 )
 
 func Topology() rabbitmq.Topology {
 	return rabbitmq.Topology{
 		Exchanges: []rabbitmq.ExchangeConfig{
-			{Name: contract.FlightUpdateEventsExchange, Kind: "topic", Durable: true},
+			{Name: contract.BookingEventsExchange, Kind: "topic", Durable: true},
 		},
 		Queues: []rabbitmq.QueueConfig{
 			{Name: Queue, Durable: true},
 		},
 		Bindings: []rabbitmq.BindingConfig{
-			{Queue: Queue, Exchange: contract.FlightUpdateEventsExchange, RoutingKey: contract.FlightSeatUpdateRoutingKey},
+			{Queue: Queue, Exchange: contract.BookingEventsExchange, RoutingKey: contract.RoutingFlightSeatUpdated},
 		},
 	}
 }
 
-func WrapSeatUpdatedHandler(handler func(contract.SeatUpdatedEvent) error) rabbitmq.Handler {
+func WrapSeatUpdatedHandler(handler func(contract.FlightSeatUpdatedEvent) error) rabbitmq.Handler {
 	return func(ctx context.Context, msg amqp.Delivery) rabbitmq.Action {
-		var event contract.SeatUpdatedEvent
+		var event contract.FlightSeatUpdatedEvent
 		if err := json.Unmarshal(msg.Body, &event); err != nil {
 			log.Printf("bad payload, discarding: %v", err)
 			return rabbitmq.NackDiscard

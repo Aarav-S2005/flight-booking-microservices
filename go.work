@@ -6,4 +6,6 @@ use (
     ./services/flight-service
 	./services/booking-service
 	./services/reservation-service
+	services/notification-service
+	services/payment-service
 )

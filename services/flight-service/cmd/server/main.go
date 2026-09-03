@@ -61,7 +61,7 @@ func main() {
 	consumer := rabbitmq.NewConsumer(conn, async.Queue)
 
 	err = consumer.Consume(ctx, "flight-service-consumer", 20,
-		async.WrapSeatUpdatedHandler(func(e contract.SeatUpdatedEvent) error {
+		async.WrapSeatUpdatedHandler(func(e contract.FlightSeatUpdatedEvent) error {
 			flightUUID, err := uuid.Parse(e.FlightID)
 			if err != nil {
 				return err

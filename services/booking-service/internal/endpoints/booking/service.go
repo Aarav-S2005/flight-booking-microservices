@@ -79,13 +79,13 @@ func (s *Service) bookTicket(ctx context.Context, reqBody BookTicketDTO, booking
 	}
 
 	for _, updatedSeat := range updatedSeats {
-		err = s.publisher.Publish(ctx, contract.FlightSeatUpdateRoutingKey, contract.SeatUpdatedEvent{
+		err = s.publisher.Publish(ctx, contract.RoutingFlightSeatUpdated, contract.FlightSeatUpdatedEvent{
 			FlightID: updatedSeat.FlightID.String(),
 			NewSeat:  updatedSeat.SeatsLeft,
 			Version:  updatedSeat.Version,
 		})
 	}
-	err = s.publisher.Publish(ctx, contract.CreateReservationEventsRoutingKey, contract.CreateReservationEvent{
+	err = s.publisher.Publish(ctx, contract.RoutingBookingConfirmedReservation, contract.BookingConfirmedForReservationEvent{
 		BookingID:      bookingID.String(),
 		PassengerIDs:   UUIDsToStrings(passengerIDs),
 		FlightSegments: stringFlightIDs,

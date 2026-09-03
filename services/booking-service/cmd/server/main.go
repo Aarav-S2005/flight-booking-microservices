@@ -57,7 +57,7 @@ func main() {
 		log.Fatal(err)
 		return
 	}
-	publisher := rabbitmq.NewPublisher(conn, contract.FlightUpdateEventsExchange)
+	publisher := rabbitmq.NewPublisher(conn, contract.BookingEventsExchange)
 
 	pubKey, err := keys.GetPublicKey(cfg.PublicJwtSecretPath)
 	if err != nil {
