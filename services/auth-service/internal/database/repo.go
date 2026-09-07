@@ -1,11 +1,10 @@
-package auth
+package database
 
 import (
 	"context"
 	"errors"
 	"time"
 
-	"github.com/Aarav-S2005/flight-booking-microservices/services/auth-service/internal/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -26,7 +25,7 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	}
 }
 
-func (repo *Repository) addUserIfAbsent(ctx context.Context, email string, passwordHash string) (uuid.UUID, error) {
+func (repo *Repository) AddUserIfAbsent(ctx context.Context, email string, passwordHash string) (uuid.UUID, error) {
 	var id uuid.UUID
 
 	err := repo.db.QueryRow(ctx, `
@@ -46,9 +45,9 @@ func (repo *Repository) addUserIfAbsent(ctx context.Context, email string, passw
 	}
 }
 
-func (repo *Repository) findUserByEmail(ctx context.Context, email string) (*db.User, error) {
+func (repo *Repository) FindUserByEmail(ctx context.Context, email string) (*User, error) {
 	row := repo.db.QueryRow(ctx, "select * from users where email = $1", email)
-	var user db.User
+	var user User
 	err := row.Scan(&user.ID,
 		&user.Email,
 		&user.PasswordHash,
@@ -59,6 +58,15 @@ func (repo *Repository) findUserByEmail(ctx context.Context, email string) (*db.
 			return nil, ErrUserNotFound
 		}
 		return nil, err
+	}
+	return &user, nil
+}
+
+func (repo *Repository) FindUserByID(ctx context.Context, id uuid.UUID) (*User, error) {
+	var user User
+	err := repo.db.QueryRow(ctx, "select * from users where id = $1", id).Scan(&user.ID, user.Email, &user.PasswordHash, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		return nil, ErrUserNotFound
 	}
 	return &user, nil
 }

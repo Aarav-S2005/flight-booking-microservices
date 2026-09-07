@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 
+	"github.com/Aarav-S2005/flight-booking-microservices/services/auth-service/internal/database"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/auth-service/internal/jwt"
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
 	"github.com/go-chi/jwtauth/v5"
@@ -12,12 +13,12 @@ import (
 )
 
 type Service struct {
-	repo      *Repository
+	repo      *database.Repository
 	tokenAuth *jwtauth.JWTAuth
 }
 
 func NewService(db *pgxpool.Pool, tokenAuth *jwtauth.JWTAuth) *Service {
-	return &Service{repo: NewRepository(db), tokenAuth: tokenAuth}
+	return &Service{repo: database.NewRepository(db), tokenAuth: tokenAuth}
 }
 
 func (s *Service) signup(ctx context.Context, reqBody LoginRequest) (string, error) {
@@ -25,10 +26,10 @@ func (s *Service) signup(ctx context.Context, reqBody LoginRequest) (string, err
 	if err != nil {
 		return "", err
 	}
-	id, err := s.repo.addUserIfAbsent(ctx, reqBody.Email, hashedPassword)
+	id, err := s.repo.AddUserIfAbsent(ctx, reqBody.Email, hashedPassword)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrUserAlreadyExists):
+		case errors.Is(err, database.ErrUserAlreadyExists):
 			return "", app_error.Conflict("user already exists", err)
 		default:
 			return "", err
@@ -39,10 +40,10 @@ func (s *Service) signup(ctx context.Context, reqBody LoginRequest) (string, err
 }
 
 func (s *Service) login(ctx context.Context, reqBody LoginRequest) (string, error) {
-	user, err := s.repo.findUserByEmail(ctx, reqBody.Email)
+	user, err := s.repo.FindUserByEmail(ctx, reqBody.Email)
 	if err != nil {
 		log.Print("wrong email")
-		if errors.Is(err, ErrUserNotFound) {
+		if errors.Is(err, database.ErrUserNotFound) {
 			return "", app_error.Unauthorized("invalid email or password", err)
 		}
 		return "", err

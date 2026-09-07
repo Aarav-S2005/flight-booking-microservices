@@ -10,7 +10,6 @@ const Queue = "reservation-service.booking-events"
 func Topology() rabbitmq.Topology {
 	return rabbitmq.Topology{
 		Exchanges: []rabbitmq.ExchangeConfig{
-			{Name: contract.ReservationEventsExchange, Kind: "topic", Durable: true},
 			{Name: contract.BookingEventsExchange, Kind: "topic", Durable: true},
 		},
 		Queues: []rabbitmq.QueueConfig{
