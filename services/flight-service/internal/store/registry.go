@@ -8,6 +8,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
