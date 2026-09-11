@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -220,6 +221,42 @@ func (repo *Repository) getAllTotalFaresByBookingUserIDGroupedByBookingID(ctx co
 	return totalFares, nil
 }
 
+func (repo *Repository) getTotalFareByBookingIDAndUserID(ctx context.Context, bookingID uuid.UUID, userID uuid.UUID) (int, error) {
+	var totalFare int
+	err := repo.db.QueryRow(ctx, "select total_fare from bookings where booking_id = $1 and booking_user_id = $2", bookingID, userID).Scan(&totalFare)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrBookingNotFound
+		}
+		return 0, err
+	}
+	return totalFare, nil
+
+}
+
+func (repo *Repository) getBookingCreationTime(ctx context.Context, userID, bookingID uuid.UUID) (time.Time, error) {
+	var creationTime time.Time
+	err := repo.db.QueryRow(ctx, "select created_at from bookings where booking_id = $1 && booking_user_id = $2", bookingID, userID).Scan(&creationTime)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return time.Time{}, ErrBookingNotFound
+		}
+		return time.Time{}, err
+	}
+	return creationTime, nil
+}
+
+func (repo *Repository) updateStatusByBookingID(ctx context.Context, bookingID uuid.UUID, status string) error {
+	_, err := repo.db.Exec(ctx, "update status set status = $1 where booking_id = $1", status, bookingID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrBookingNotFound
+		}
+		return err
+	}
+	return nil
+}
+
 // Booking Transaction Breakdown
 
 func lockAndDecreaseSeats(ctx context.Context, tx pgx.Tx, flightIDs []uuid.UUID, passengerCount int) ([]SeatUpdate, error) {
@@ -267,12 +304,7 @@ func createBooking(ctx context.Context, tx pgx.Tx, bookingUserID uuid.UUID, emai
 	return bookingID, nil
 }
 
-func insertAllPassengers(
-	ctx context.Context,
-	tx pgx.Tx,
-	passengerDetails []PassengerDetails,
-	bookingID uuid.UUID,
-) ([]uuid.UUID, error) {
+func insertAllPassengers(ctx context.Context, tx pgx.Tx, passengerDetails []PassengerDetails, bookingID uuid.UUID) ([]uuid.UUID, error) {
 	if len(passengerDetails) == 0 {
 		return []uuid.UUID{}, nil
 	}

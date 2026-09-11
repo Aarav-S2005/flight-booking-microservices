@@ -1,6 +1,8 @@
 package booking
 
-import "time"
+import (
+	"time"
+)
 
 type BookTicketDTO struct {
 	Email            string              `json:"email"`
@@ -55,4 +57,23 @@ type FlightDetailsDTO struct {
 type ValidateFareRequestDTO struct {
 	FlightIDs []string `json:"flight_ids"`
 	TotalFare int      `json:"total_fare"`
+}
+
+type ValidateBookingRequestDTO struct {
+	BookingID string `json:"booking_id"`
+	UserID    string `json:"user_id"`
+}
+
+type ValidateBookingResponseDTO struct {
+	TotalFare int `json:"total_fare"`
+}
+
+type ValidatePaymentRequestDTO struct {
+	PaymentTime time.Time `json:"payment_time"`
+	UserID      string    `json:"user_id"`
+	BookingID   string    `json:"booking_id"`
+}
+
+type ValidatePaymentResponseDTO struct {
+	Valid bool `json:"valid"`
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/utility"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
@@ -29,6 +30,8 @@ func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth) chi.Router {
 	})
 	r.Post("/book", h.bookTicket)
 	r.Get("/booking", h.getAllBookings)
+	r.Post("/validate-booking", h.validateBookingForPayment)
+	r.Post("/validate-payment", h.validatePayment)
 	//r.Get("/booking/{bookingId}", h.getBooking)
 	return r
 }
@@ -71,4 +74,45 @@ func (h *Handler) getAllBookings(w http.ResponseWriter, r *http.Request) {
 	utility.ConvertStructToJSON(w, 200, resBody)
 }
 
-//func (h *Handler) getBooking(w http.ResponseWriter, r *http.Request) {}
+func (h *Handler) validateBookingForPayment(w http.ResponseWriter, r *http.Request) {
+	var reqBody ValidateBookingRequestDTO
+	err := utility.ConvertJSONToStruct(r, &reqBody)
+	if err != nil {
+		app_error.HandleError(w, app_error.BadRequest("could not parse json", err))
+		return
+	}
+	userID, err := uuid.Parse(reqBody.UserID)
+	if err != nil {
+		app_error.HandleError(w, app_error.BadRequest("invalid user id", err))
+		return
+	}
+	bookingUserID, err := uuid.Parse(reqBody.BookingID)
+	if err != nil {
+		app_error.HandleError(w, app_error.BadRequest("invalid booking id", err))
+	}
+	totalFare, err := h.service.validateBooking(r.Context(), userID, bookingUserID)
+	if err != nil {
+		app_error.HandleError(w, err)
+		return
+	}
+	utility.ConvertStructToJSON(w, 200, ValidateBookingResponseDTO{totalFare})
+}
+
+func (h *Handler) validatePayment(w http.ResponseWriter, r *http.Request) {
+	var reqBody ValidatePaymentRequestDTO
+	err := utility.ConvertJSONToStruct(r, &reqBody)
+	if err != nil {
+		app_error.HandleError(w, app_error.BadRequest("could not parse json", err))
+		return
+	}
+	valid, err := h.service.validatePayment(r.Context(), reqBody)
+	if err != nil {
+		app_error.HandleError(w, err)
+		return
+	}
+	if !valid {
+		utility.ConvertStructToJSON(w, 200, ValidatePaymentResponseDTO{false})
+		return
+	}
+	utility.ConvertStructToJSON(w, 200, ValidatePaymentResponseDTO{true})
+}

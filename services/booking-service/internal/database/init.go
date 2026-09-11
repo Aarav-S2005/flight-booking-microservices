@@ -14,7 +14,6 @@ const (
 				'PAYMENT_PENDING',
 				'CONFIRMED',
 				'FAILED',
-				'CANCELLED',
 			);
 		EXCEPTION
 			WHEN duplicate_object THEN NULL;

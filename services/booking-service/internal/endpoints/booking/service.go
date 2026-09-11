@@ -2,9 +2,12 @@ package booking
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq"
@@ -85,11 +88,24 @@ func (s *Service) bookTicket(ctx context.Context, reqBody BookTicketDTO, booking
 			Version:  updatedSeat.Version,
 		})
 	}
-	err = s.publisher.Publish(ctx, contract.RoutingBookingConfirmedReservation, contract.BookingConfirmedForReservationEvent{
+	err = s.publisher.Publish(ctx, contract.RoutingBookingConfirmedPayment, contract.BookingConfirmedForPaymentEvent{
+		UserID:    bookingUserID.String(),
+		BookingID: bookingID.String(),
+		TotalFare: reqBody.TotalFare,
+	})
+	value, err := json.Marshal(contract.BookingConfirmedForReservationEvent{
 		BookingID:      bookingID.String(),
 		PassengerIDs:   UUIDsToStrings(passengerIDs),
 		FlightSegments: stringFlightIDs,
 	})
+	if err != nil {
+		log.Println(err)
+	} else {
+		err = s.rdb.Set(ctx, bookingID.String()+"-for-res-noti", value, 0).Err()
+		if err != nil {
+			log.Println(err)
+		}
+	}
 	return BookTicketResponseDTO{BookingID: bookingID.String()}, nil
 }
 
@@ -136,6 +152,70 @@ func (s *Service) getAllBookings(ctx context.Context, bookingUserID uuid.UUID) (
 	return GetAllBookingsDTO{
 		Bookings: bookings,
 	}, nil
+}
+
+func (s *Service) validateBooking(ctx context.Context, userID, bookingID uuid.UUID) (int, error) {
+	totalFare, err := s.repo.getTotalFareByBookingIDAndUserID(ctx, bookingID, userID)
+	if err != nil {
+		if errors.Is(err, ErrBookingNotFound) {
+			return 0, app_error.NotFound("booking not found", err)
+		}
+		return 0, err
+	}
+
+	return totalFare, nil
+}
+
+func (s *Service) validatePayment(ctx context.Context, reqBody ValidatePaymentRequestDTO) (bool, error) {
+	userID, err := uuid.Parse(reqBody.UserID)
+	if err != nil {
+		return false, app_error.BadRequest("invalid user id", err)
+	}
+	bookingID, err := uuid.Parse(reqBody.BookingID)
+	if err != nil {
+		return false, app_error.BadRequest("invalid booking id", err)
+	}
+	creationTime, err := s.repo.getBookingCreationTime(ctx, userID, bookingID)
+	if err != nil {
+		if errors.Is(err, ErrBookingNotFound) {
+			return false, app_error.NotFound("booking not found", err)
+		}
+		return false, err
+	}
+	if reqBody.PaymentTime.Before(creationTime) {
+		return false, app_error.BadRequest("payment time cannot be before booking creation time", nil)
+	}
+
+	deadline := creationTime.Add(10 * time.Minute)
+	if reqBody.PaymentTime.After(deadline) {
+		err = s.repo.updateStatusByBookingID(ctx, bookingID, "FAILED")
+		if err != nil {
+			if errors.Is(err, ErrBookingNotFound) {
+				return false, app_error.NotFound("booking not found", err)
+			}
+			return false, err
+		}
+		return false, nil
+	}
+	err = s.repo.updateStatusByBookingID(ctx, bookingID, "CONFIRMED")
+	if err != nil {
+		log.Println("DB failed to update status ", err)
+	}
+	data, err := s.rdb.Get(ctx, bookingID.String()+"-for-res-noti").Bytes()
+	if err != nil {
+		log.Println("redis failed to get booking data: ", err)
+	} else {
+		var bookingMessageForReservation contract.BookingConfirmedForReservationEvent
+		err = json.Unmarshal(data, &bookingMessageForReservation)
+		if err != nil {
+			log.Println("unmarshaling failed ", err)
+		}
+		err = s.publisher.Publish(ctx, contract.RoutingBookingConfirmedReservation, bookingMessageForReservation)
+		if err != nil {
+			log.Println("publishing failed ", err)
+		}
+	}
+	return true, nil
 }
 
 // Helper
