@@ -95,6 +95,7 @@ func (s *Service) bookTicket(ctx context.Context, reqBody BookTicketDTO, booking
 	})
 	value, err := json.Marshal(contract.BookingConfirmedForReservationEvent{
 		BookingID:      bookingID.String(),
+		UserID:         bookingUserID.String(),
 		PassengerIDs:   UUIDsToStrings(passengerIDs),
 		FlightSegments: stringFlightIDs,
 	})

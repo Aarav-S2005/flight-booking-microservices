@@ -1,6 +1,8 @@
 package endpoint
 
 import (
+	"context"
+
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq"
 	"github.com/go-resty/resty/v2"
 )
@@ -21,4 +23,8 @@ func NewService(repo *Repository, publisher *rabbitmq.Publisher, flightServiceUR
 		bookingServiceURL: bookingServiceURL,
 		client:            resty.New().SetHeader("Content-Type", "application/json"),
 	}
+}
+
+func (s *Service) reserveSeats(ctx context.Context, reqBody ReserveSeatsRequestDTO) error {
+	return nil
 }

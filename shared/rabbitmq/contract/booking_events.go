@@ -21,6 +21,7 @@ type FlightSeatUpdatedEvent struct {
 
 type BookingConfirmedForReservationEvent struct {
 	BookingID      string   `json:"booking_id"`
+	UserID         string   `json:"user_id"`
 	PassengerIDs   []string `json:"passenger_ids"`
 	FlightSegments []string `json:"flight_segments"`
 }

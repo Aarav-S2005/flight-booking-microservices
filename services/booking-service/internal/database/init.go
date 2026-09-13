@@ -27,7 +27,6 @@ const (
 		  	booking_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			booking_user_id UUID NOT NULL,
 			reservation_id UUID,
-			payment_id UUID,	
 			email TEXT NOT NULL,
 			phone TEXT NOT NULL,
 			total_fare INTEGER NOT NULL DEFAULT 0,

@@ -18,30 +18,32 @@ const (
 	`
 	reservationSchema = `
 		CREATE EXTENSION IF NOT EXISTS pgcrypto;
-		CREATE TABLE IF NOT EXISTS reservation (
+		CREATE TABLE IF NOT EXISTS reservations (
 		  	reservation_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID NOT NULL,
 			booking_id UUID NOT NULL UNIQUE,
 			passenger_count INTEGER NOT NULL
 		)
 	`
 	reservationFlightsSchema = `
 		create table reservation_flights (
-		    reservation_id UUID NOT NULL REFERENCES reservation(reservation_id) ON DELETE CASCADE,
+		    reservation_id UUID NOT NULL REFERENCES reservations(reservation_id) ON DELETE CASCADE,
 			flight_id UUID NOT NULL,
-			aircraft_type VARCHAR(12) NOT NULL,
-			flight_departure_time TIMESTAMP NOT NULL,
+			aircraft_type VARCHAR(12),
+			flight_departure_time TIMESTAMP,
 			segment_number INTEGER NOT NULL CHECK (segment_number > 0),
-			PRIMARY KEY (reservation_id, flight_id, segment_number)
+			PRIMARY KEY (reservation_id, flight_id, segment_number),
+			UNIQUE (flight_id, aircraft_type)
 		)
 	`
 	seatAllocationSchema = `
 		CREATE TABLE IF NOT EXISTS seat_allocation (
-		    reservation_id UUID NOT NULL REFERENCES reservation(reservation_id) ON DELETE CASCADE,
+		    reservation_id UUID NOT NULL REFERENCES reservations(reservation_id) ON DELETE CASCADE,
 			flight_id UUID NOT NULL,
-		    seat_allocated varchar(4) NOT NULL,  -- will be represented like "12A" "27E" and will pe parsed and split in repo layer
+		    column_allocated char(1),
+		    seat_number int,
 		    passenger_id UUID NOT NULL,
-		    UNIQUE (reservation_id, flight_id, passenger_id),
-		    UNIQUE (flight_id, seat_allocated)
+		    UNIQUE (reservation_id, flight_id, passenger_id, column_allocated, seat_number),
 		)
 	`
 )

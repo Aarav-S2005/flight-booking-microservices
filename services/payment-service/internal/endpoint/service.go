@@ -59,7 +59,7 @@ func (s *Service) Pay(ctx context.Context, userID uuid.UUID, reqBody MakePayment
 		}
 	}
 	if paymentRecord.PaymentCompletedAt != nil {
-		return nil
+		return app_error.BadRequest("payment already completed", errors.New("payment already completed"))
 	}
 	if paymentRecord.Amount != reqBody.Amount {
 		return app_error.BadRequest("amount does not match", errors.New("amount does not match"))

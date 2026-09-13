@@ -22,7 +22,6 @@ type Booking struct {
 	BookingID     uuid.UUID     `db:"booking_id,omitempty" json:"id,omitempty"`
 	BookingUserID uuid.UUID     `db:"booking_user_id" json:"user_id"`
 	ReservationID *uuid.UUID    `db:"reservation_id,omitempty" json:"reservation_id,omitempty"`
-	PaymentID     *uuid.UUID    `db:"payment_id,omitempty" json:"payment_id,omitempty"`
 	Email         *string       `db:"email" json:"email,omitempty"`
 	Phone         *string       `db:"phone" json:"phone,omitempty"`
 	TotalFare     float64       `db:"total_fare" json:"total_fare,omitempty"`
