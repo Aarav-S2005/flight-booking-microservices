@@ -167,7 +167,7 @@ func (s *Service) validateBooking(ctx context.Context, userID, bookingID uuid.UU
 	return totalFare, nil
 }
 
-func (s *Service) validatePayment(ctx context.Context, reqBody ValidatePaymentRequestDTO) (bool, error) {
+func (s *Service) validatePayment(ctx context.Context, reqBody ValidateBookingForPaymentRequestDTO) (bool, error) {
 	userID, err := uuid.Parse(reqBody.UserID)
 	if err != nil {
 		return false, app_error.BadRequest("invalid user id", err)
@@ -217,6 +217,10 @@ func (s *Service) validatePayment(ctx context.Context, reqBody ValidatePaymentRe
 		}
 	}
 	return true, nil
+}
+
+func (s *Service) validateBookingForReservation(ctx context.Context, userID, bookingID uuid.UUID) (ValidateBookingForReservationResponseDTO, error) {
+	return ValidateBookingForReservationResponseDTO{}, nil
 }
 
 // Helper

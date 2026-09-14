@@ -32,7 +32,7 @@ func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth) chi.Router {
 	r.Get("/booking", h.getAllBookings)
 	r.Post("/validate-booking", h.validateBookingForPayment)
 	r.Post("/validate-payment", h.validatePayment)
-	//r.Get("/booking/{bookingId}", h.getBooking)
+	r.Post("/validate-reservation", h.validateBookingForReservation)
 	return r
 }
 
@@ -99,7 +99,7 @@ func (h *Handler) validateBookingForPayment(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *Handler) validatePayment(w http.ResponseWriter, r *http.Request) {
-	var reqBody ValidatePaymentRequestDTO
+	var reqBody ValidateBookingForPaymentRequestDTO
 	err := utility.ConvertJSONToStruct(r, &reqBody)
 	if err != nil {
 		app_error.HandleError(w, app_error.BadRequest("could not parse json", err))
@@ -111,8 +111,33 @@ func (h *Handler) validatePayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !valid {
-		utility.ConvertStructToJSON(w, 200, ValidatePaymentResponseDTO{false})
+		utility.ConvertStructToJSON(w, 200, ValidateBookingForPaymentResponseDTO{false})
 		return
 	}
-	utility.ConvertStructToJSON(w, 200, ValidatePaymentResponseDTO{true})
+	utility.ConvertStructToJSON(w, 200, ValidateBookingForPaymentResponseDTO{true})
+}
+
+func (h *Handler) validateBookingForReservation(w http.ResponseWriter, r *http.Request) {
+	var reqBody ValidateBookingForReservationRequestDTO
+	err := utility.ConvertJSONToStruct(r, &reqBody)
+	if err != nil {
+		app_error.HandleError(w, app_error.BadRequest("could not parse json", err))
+		return
+	}
+	userID, err := uuid.Parse(reqBody.UserID)
+	if err != nil {
+		app_error.HandleError(w, app_error.BadRequest("invalid user id", err))
+		return
+	}
+	bookingID, err := uuid.Parse(reqBody.BookingID)
+	if err != nil {
+		app_error.HandleError(w, app_error.BadRequest("invalid booking id", err))
+		return
+	}
+	resp, err := h.service.validateBookingForReservation(r.Context(), userID, bookingID)
+	if err != nil {
+		app_error.HandleError(w, err)
+		return
+	}
+	utility.ConvertStructToJSON(w, 200, resp)
 }
