@@ -86,4 +86,10 @@ type ValidateBookingForReservationRequestDTO struct {
 type ValidateBookingForReservationResponseDTO struct {
 	Passengers []string `json:"passengers"`
 	FlightIDs  []string `json:"flight_ids"`
+	Status     string   `json:"status"`
+}
+
+type ValidatePaymentRequestDTO struct {
+	BookingID string `json:"booking_id"`
+	UserID    string `json:"user_id"`
 }

@@ -23,7 +23,7 @@ type Service struct {
 func NewService(db *pgxpool.Pool, bookingServiceURL string) *Service {
 	return &Service{
 		bookingServiceURL: bookingServiceURL,
-		httpClient:        resty.New().SetBaseURL(bookingServiceURL),
+		httpClient:        resty.New().SetBaseURL(bookingServiceURL).SetHeader("Content-Type", "application/json"),
 		repo:              NewRepository(db),
 	}
 }
@@ -65,8 +65,8 @@ func (s *Service) Pay(ctx context.Context, userID uuid.UUID, reqBody MakePayment
 		return app_error.BadRequest("amount does not match", errors.New("amount does not match"))
 	}
 	now := time.Now()
-	var resBody ValidatePaymentResponseDTO
-	resp, err := s.httpClient.R().SetResult(&resBody).SetBody(ValidatePaymentRequestDTO{
+	var resBody ValidatePaymentToBookingResponseDTO
+	resp, err := s.httpClient.R().SetResult(&resBody).SetBody(ValidatePaymentToBookingRequestDTO{
 		PaymentTime: now,
 		UserID:      userID.String(),
 		BookingID:   bookingID.String(),
@@ -90,4 +90,18 @@ func (s *Service) Pay(ctx context.Context, userID uuid.UUID, reqBody MakePayment
 		return app_error.InternalServer(errors.New("could not validate payment"))
 	}
 	return nil
+}
+
+func (s *Service) validatePayment(ctx context.Context, bookingID, userID uuid.UUID) (bool, error) {
+	paymentRecord, err := s.repo.findRecordByUserIDAndBookingID(ctx, userID, bookingID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, app_error.NotFound("payment not found", errors.New("payment not found"))
+		}
+		return false, err
+	}
+	if paymentRecord.PaymentCompletedAt == nil {
+		return false, nil
+	}
+	return true, nil
 }

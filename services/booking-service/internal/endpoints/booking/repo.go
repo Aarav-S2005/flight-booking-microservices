@@ -15,6 +15,7 @@ import (
 var (
 	ErrInsufficientSeatsLeft = errors.New("insufficient number of seats left")
 	ErrBookingNotFound       = errors.New("booking not found")
+	ErrStatusNotConfirmed    = errors.New("status not confirmed")
 )
 
 type Repository struct {
@@ -255,6 +256,64 @@ func (repo *Repository) updateStatusByBookingID(ctx context.Context, bookingID u
 		return err
 	}
 	return nil
+}
+
+func (repo *Repository) getPassengersIDbyBookingID(ctx context.Context, bookingID uuid.UUID) ([]uuid.UUID, error) {
+	var passengerIDs []uuid.UUID
+	rows, err := repo.db.Query(ctx, "select passengers_id from passengers where booking_id = $1", bookingID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrBookingNotFound
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var passengerID uuid.UUID
+		if err := rows.Scan(&passengerID); err != nil {
+			return nil, err
+		}
+		passengerIDs = append(passengerIDs, passengerID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return passengerIDs, nil
+}
+
+func (repo *Repository) getFlightIDsBytBookingID(ctx context.Context, bookingID uuid.UUID) ([]uuid.UUID, error) {
+	var flightIDs []uuid.UUID
+	rows, err := repo.db.Query(ctx, "select flight_id from flight_segments where booking_id = $1 order by segment_order", bookingID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrBookingNotFound
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var flightID uuid.UUID
+		if err := rows.Scan(&flightID); err != nil {
+			return nil, err
+		}
+		flightIDs = append(flightIDs, flightID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return flightIDs, nil
+}
+
+func (repo *Repository) checkStatusByBookingID(ctx context.Context, bookingID, userID uuid.UUID) (string, error) {
+	var status string
+	err := repo.db.QueryRow(ctx, "select status from bookings where booking_id = $1 and booking_user_id = $2", bookingID, userID).Scan(&status)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrBookingNotFound
+		}
+		return "", err
+	}
+	return status, nil
 }
 
 // Booking Transaction Breakdown

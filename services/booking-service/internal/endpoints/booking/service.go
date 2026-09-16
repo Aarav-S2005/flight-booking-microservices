@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Aarav-S2005/flight-booking-microservices/services/booking-service/internal/database"
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq/contract"
@@ -220,7 +221,68 @@ func (s *Service) validatePayment(ctx context.Context, reqBody ValidateBookingFo
 }
 
 func (s *Service) validateBookingForReservation(ctx context.Context, userID, bookingID uuid.UUID) (ValidateBookingForReservationResponseDTO, error) {
-	return ValidateBookingForReservationResponseDTO{}, nil
+	data, err := s.rdb.Get(ctx, bookingID.String()+"-for-res-noti").Bytes()
+	var respBody contract.BookingConfirmedForReservationEvent
+	var strPassengerIDs []string
+	var strFlightIDs []string
+	if err != nil || json.Unmarshal(data, &respBody) != nil {
+		log.Println("redis failed to get booking data: ", err)
+
+		status, err := s.repo.checkStatusByBookingID(ctx, bookingID, userID)
+		if err != nil {
+			if errors.Is(err, ErrBookingNotFound) {
+				return ValidateBookingForReservationResponseDTO{}, app_error.NotFound("booking not found", err)
+			}
+			return ValidateBookingForReservationResponseDTO{}, err
+		}
+		if status == string(database.BookingFailed) {
+			return ValidateBookingForReservationResponseDTO{}, app_error.BadRequest("booking failed, no reservation", err)
+		}
+		if status != string(database.BookingConfirmed) {
+
+			req := ValidatePaymentRequestDTO{
+				BookingID: bookingID.String(),
+				UserID:    userID.String(),
+			}
+
+			resp, err := s.client.R().SetBody(req).Get(s.reservationServiceURL + "/validate-payment")
+			if err != nil {
+				return ValidateBookingForReservationResponseDTO{}, err
+			}
+			if resp.StatusCode() >= 400 {
+				return ValidateBookingForReservationResponseDTO{}, app_error.BadRequest("booking failed, no reservation", err)
+			}
+			if resp.StatusCode() == http.StatusAccepted {
+				return ValidateBookingForReservationResponseDTO{
+					Status: "PAYMENT_PENDING",
+				}, nil
+			}
+			err = s.repo.updateStatusByBookingID(ctx, bookingID, "CONFIRMED")
+			if err != nil {
+				log.Println("DB failed to update status ", err)
+			}
+		}
+		passengerIDs, err := s.repo.getPassengersIDbyBookingID(ctx, bookingID)
+		if err != nil {
+			if errors.Is(err, ErrBookingNotFound) {
+				return ValidateBookingForReservationResponseDTO{}, app_error.NotFound("booking not found", err)
+			}
+			return ValidateBookingForReservationResponseDTO{}, err
+		}
+		flightIDs, err := s.repo.getFlightIDsBytBookingID(ctx, bookingID)
+		if err != nil {
+			if errors.Is(err, ErrBookingNotFound) {
+				return ValidateBookingForReservationResponseDTO{}, app_error.NotFound("booking not found", err)
+			}
+			return ValidateBookingForReservationResponseDTO{}, err
+		}
+		strPassengerIDs = UUIDsToStrings(passengerIDs)
+		strFlightIDs = UUIDsToStrings(flightIDs)
+	} else {
+		strPassengerIDs = respBody.PassengerIDs
+		strFlightIDs = respBody.FlightSegments
+	}
+	return ValidateBookingForReservationResponseDTO{strPassengerIDs, strFlightIDs, "CONFIRMED"}, nil
 }
 
 // Helper

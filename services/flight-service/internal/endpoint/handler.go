@@ -77,7 +77,7 @@ func (h *Handler) createFlight(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) validateFlights(w http.ResponseWriter, r *http.Request) {
-	ids := r.URL.Query()["flight-id"]
+	ids := r.URL.Query()["flightID"]
 	flightIDs := make([]uuid.UUID, 0, len(ids))
 
 	if flightIDs == nil {

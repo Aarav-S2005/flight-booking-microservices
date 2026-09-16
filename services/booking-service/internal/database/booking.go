@@ -12,7 +12,6 @@ const (
 	BookingPaymentPending BookingStatus = "PAYMENT_PENDING"
 	BookingConfirmed      BookingStatus = "CONFIRMED"
 	BookingFailed         BookingStatus = "FAILED"
-	BookingCancelled      BookingStatus = "CANCELLED"
 )
 
 type Contact struct {

@@ -16,12 +16,17 @@ type ValidateBookingResponseDTO struct {
 	TotalFare int `json:"total_fare"`
 }
 
-type ValidatePaymentRequestDTO struct {
+type ValidatePaymentToBookingRequestDTO struct {
 	PaymentTime time.Time `json:"payment_time"`
 	UserID      string    `json:"user_id"`
 	BookingID   string    `json:"booking_id"`
 }
 
-type ValidatePaymentResponseDTO struct {
+type ValidatePaymentToBookingResponseDTO struct {
 	Valid bool `json:"valid"`
+}
+
+type ValidatePaymentRequestDTO struct {
+	BookingID string `json:"booking_id"`
+	UserID    string `json:"user_id"`
 }
