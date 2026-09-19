@@ -17,7 +17,7 @@ func SignJwt(tokenAuth *jwtauth.JWTAuth, id uuid.UUID) (string, error) {
 	if tokenAuth == nil {
 		return "", errors.New("auth not initialized")
 	}
-	now := time.Now()
+	now := time.Now().UTC()
 
 	_, token, err := tokenAuth.Encode(map[string]interface{}{
 		"iat": now.Unix(),

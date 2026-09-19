@@ -64,7 +64,7 @@ func (s *Service) Pay(ctx context.Context, userID uuid.UUID, reqBody MakePayment
 	if paymentRecord.Amount != reqBody.Amount {
 		return app_error.BadRequest("amount does not match", errors.New("amount does not match"))
 	}
-	now := time.Now()
+	now := time.Now().UTC()
 	var resBody ValidatePaymentToBookingResponseDTO
 	resp, err := s.httpClient.R().SetResult(&resBody).SetBody(ValidatePaymentToBookingRequestDTO{
 		PaymentTime: now,

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/google/uuid"
 )
 
 func ConvertJSONToStruct(r *http.Request, v interface{}) error {
@@ -24,4 +26,18 @@ func ConvertStructToJSON(w http.ResponseWriter, status int, data interface{}) er
 	w.WriteHeader(status)
 
 	return json.NewEncoder(w).Encode(data)
+}
+
+func ToUUIDs(ids []string) ([]uuid.UUID, error) {
+	result := make([]uuid.UUID, 0, len(ids))
+
+	for _, id := range ids {
+		u, err := uuid.Parse(id)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, u)
+	}
+
+	return result, nil
 }

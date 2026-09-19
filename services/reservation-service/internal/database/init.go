@@ -25,16 +25,21 @@ const (
 			passenger_count INTEGER NOT NULL
 		)
 	`
-	reservationFlightsSchema = `
-		create table reservation_flights (
-		    reservation_id UUID NOT NULL REFERENCES reservations(reservation_id) ON DELETE CASCADE,
-			flight_id UUID NOT NULL,
-			aircraft_type VARCHAR(12),
-			flight_departure_time TIMESTAMP,
-			segment_number INTEGER NOT NULL CHECK (segment_number > 0),
-			PRIMARY KEY (reservation_id, flight_id, segment_number),
-			UNIQUE (flight_id, aircraft_type)
+	flightSchema = `
+		CREATE TABLE IF NOT EXISTS flights (
+			flight_id      UUID PRIMARY KEY,
+			aircraft_type  VARCHAR(12) NOT NULL REFERENCES aircraft(aircraft_type),
+			departure_time TIMESTAMPTZ NOT NULL
 		)
+	`
+	reservationFlightsSchema = `
+		CREATE TABLE IF NOT EXISTS reservation_flights (
+			reservation_id UUID    NOT NULL REFERENCES reservations(reservation_id) ON DELETE CASCADE,
+			flight_id      UUID    NOT NULL REFERENCES flights(flight_id),
+			segment_number INTEGER NOT NULL CHECK (segment_number > 0),
+			PRIMARY KEY (reservation_id, flight_id),
+			UNIQUE (reservation_id, segment_number)
+		);
 	`
 	seatAllocationSchema = `
 		CREATE TABLE IF NOT EXISTS seat_allocation (
@@ -43,7 +48,11 @@ const (
 		    column_allocated char(1),
 		    seat_number int,
 		    passenger_id UUID NOT NULL,
-		    UNIQUE (reservation_id, flight_id, passenger_id, column_allocated, seat_number),
+		    UNIQUE (reservation_id, flight_id, passenger_id),
+		    UNIQUE (flight_id, column_allocated, seat_number),
+		    FOREIGN KEY (reservation_id, flight_id)
+			REFERENCES reservation_flights (reservation_id, flight_id)
+			ON DELETE CASCADE,
 		)
 	`
 )
@@ -63,13 +72,16 @@ func InitSchema(ctx context.Context, db *pgxpool.Pool) error {
 			return err
 		}
 	}
-	if _, err := db.Exec(ctx, aircraftSchema); err != nil {
+	if _, err := db.Exec(ctx, reservationSchema); err != nil {
 		return err
 	}
-	if _, err := db.Exec(ctx, aircraftSchema); err != nil {
+	if _, err := db.Exec(ctx, flightSchema); err != nil {
 		return err
 	}
-	if _, err := db.Exec(ctx, aircraftSchema); err != nil {
+	if _, err := db.Exec(ctx, reservationFlightsSchema); err != nil {
+		return err
+	}
+	if _, err := db.Exec(ctx, seatAllocationSchema); err != nil {
 		return err
 	}
 	return nil

@@ -104,7 +104,7 @@ func getAllAirportsFromDB(ctx context.Context, db *pgxpool.Pool) ([]database.Air
 }
 
 func getFlightsFromDB(ctx context.Context, db *pgxpool.Pool) ([]database.Flight, error) {
-	now := time.Now()
+	now := time.Now().UTC()
 	today := now
 	after45Days := now.AddDate(0, 0, 45)
 	rows, err := db.Query(ctx, "SELECT * FROM flights WHERE departure_time > $1 AND departure_time < $2", today, after45Days)

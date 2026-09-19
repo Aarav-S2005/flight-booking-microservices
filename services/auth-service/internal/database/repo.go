@@ -33,7 +33,7 @@ func (repo *Repository) AddUserIfAbsent(ctx context.Context, email string, passw
 		VALUES ($1, $2, $3)
 		ON CONFLICT (email) DO NOTHING
 		RETURNING id
-	`, email, passwordHash, time.Now()).Scan(&id)
+	`, email, passwordHash, time.Now().UTC()).Scan(&id)
 
 	switch {
 	case err == nil:

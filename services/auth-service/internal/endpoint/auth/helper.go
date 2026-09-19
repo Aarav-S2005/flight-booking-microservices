@@ -33,7 +33,7 @@ func SetCookie(w http.ResponseWriter, name, value string) {
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 		HttpOnly: true,
-		Expires:  time.Now().Add(24 * time.Hour),
+		Expires:  time.Now().UTC().Add(24 * time.Hour),
 	})
 }
 

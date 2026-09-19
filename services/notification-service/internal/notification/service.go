@@ -45,7 +45,7 @@ func (s *service) Notify(ctx context.Context, job Job) error {
 		RecipientEmail: userEmail,
 		Subject:        subject,
 		Body:           body,
-		SentAt:         time.Now(),
+		SentAt:         time.Now().UTC(),
 		Success:        err == nil,
 	}
 	if err := s.repo.Save(ctx, rec); err != nil {
