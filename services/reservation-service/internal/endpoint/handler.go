@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/Aarav-S2005/flight-booking-microservices/services/reservation-service/internal/database"
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/middlewares"
 	auth_middlewares "github.com/Aarav-S2005/flight-booking-microservices/shared/middlewares/auth-middlewares"
@@ -21,7 +22,7 @@ type Handler struct {
 
 func NewHandler(db *pgxpool.Pool, publisher *rabbitmq.Publisher, flightServiceURL string, bookingServiceURL string) *Handler {
 	return &Handler{
-		service: NewService(NewRepository(db), publisher, flightServiceURL, bookingServiceURL),
+		service: NewService(database.NewRepository(db), publisher, flightServiceURL, bookingServiceURL),
 	}
 }
 
@@ -35,10 +36,21 @@ func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth, logger *slog.Logger) ch
 }
 
 func (h *Handler) reserveSeats(w http.ResponseWriter, r *http.Request) {
+	userID, err := utility.UserIDFromContext(r.Context())
+	if err != nil {
+		app_error.HandleError(w, app_error.Unauthorized("failed to parse jwt claim", err))
+		return
+	}
 	var reqBody ReserveSeatsRequestDTO
-	err := utility.ConvertJSONToStruct(r, &reqBody)
+	err = utility.ConvertJSONToStruct(r, &reqBody)
 	if err != nil {
 		app_error.HandleError(w, app_error.BadRequest("could not parse json", errors.New("could not parse json")))
 		return
 	}
+	err = h.service.reserveSeats(r.Context(), reqBody, userID)
+	if err != nil {
+		app_error.HandleError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
 }
