@@ -3,8 +3,11 @@ package store
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
+	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/database"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -84,6 +87,42 @@ func buildSnapShot(ctx context.Context, db *pgxpool.Pool) (*FlightsSnapshot, err
 		snapshot.ListByDurationAsc = append(snapshot.ListByDurationAsc, flight.Id)
 		snapshot.ListByDepartureTimeAsc = append(snapshot.ListByDepartureTimeAsc, flight.Id)
 	}
+	slices.SortFunc(snapshot.ListByPriceAsc, func(a, b uuid.UUID) int {
+		fa := snapshot.FlightsByID[a]
+		fb := snapshot.FlightsByID[b]
+
+		if fa.Price < fb.Price {
+			return -1
+		}
+		if fa.Price > fb.Price {
+			return 1
+		}
+		return strings.Compare(a.String(), b.String())
+	})
+	slices.SortFunc(snapshot.ListByDurationAsc, func(a, b uuid.UUID) int {
+		fa := snapshot.FlightsByID[a]
+		fb := snapshot.FlightsByID[b]
+
+		if fa.DurationInMins < fb.DurationInMins {
+			return -1
+		}
+		if fa.DurationInMins > fb.DurationInMins {
+			return 1
+		}
+		return strings.Compare(a.String(), b.String())
+	})
+	slices.SortFunc(snapshot.ListByDepartureTimeAsc, func(a, b uuid.UUID) int {
+		fa := snapshot.FlightsByID[a]
+		fb := snapshot.FlightsByID[b]
+
+		if fa.DepartureTime.Before(fb.DepartureTime) {
+			return -1
+		}
+		if fa.DepartureTime.After(fb.DepartureTime) {
+			return 1
+		}
+		return strings.Compare(a.String(), b.String())
+	})
 
 	return &snapshot, nil
 }

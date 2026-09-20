@@ -49,7 +49,7 @@ func (reg *Registry) ApplySeatUpdate(ctx context.Context, flightID uuid.UUID, ne
 		return nil
 	}
 
-	_, err := db.Exec(ctx, ` UPDATE flights SET seats_left = $1 WHERE id = $2 `, newSeat, flightID)
+	_, err := db.Exec(ctx, `UPDATE flights SET seats_left = $1 WHERE id = $2`, newSeat, flightID)
 	if err != nil {
 		log.Printf("failed to update seats_left: %v", err)
 	}
@@ -101,27 +101,33 @@ func cloneForInsert(old *FlightsSnapshot, f database.Flight) *FlightsSnapshot {
 	next.AdjBySource[f.SourceAirportCode] = appendCopy(next.AdjBySource[f.SourceAirportCode], f.Id)
 
 	next.ListByPriceAsc = insertSorted(old.ListByPriceAsc, f.Id, func(a, b uuid.UUID) bool {
-		fa := old.FlightsByID[a]
+		fa := f
+		if a != f.Id {
+			fa = old.FlightsByID[a]
+		}
 		fb := old.FlightsByID[b]
-
 		if fa.Price != fb.Price {
 			return fa.Price < fb.Price
 		}
 		return a.String() < b.String()
 	})
 	next.ListByDurationAsc = insertSorted(old.ListByDurationAsc, f.Id, func(a, b uuid.UUID) bool {
-		fa := old.FlightsByID[a]
+		fa := f
+		if a != f.Id {
+			fa = old.FlightsByID[a]
+		}
 		fb := old.FlightsByID[b]
-
 		if fa.DurationInMins != fb.DurationInMins {
 			return fa.DurationInMins < fb.DurationInMins
 		}
 		return a.String() < b.String()
 	})
 	next.ListByDepartureTimeAsc = insertSorted(old.ListByDepartureTimeAsc, f.Id, func(a, b uuid.UUID) bool {
-		fa := old.FlightsByID[a]
+		fa := f
+		if a != f.Id {
+			fa = old.FlightsByID[a]
+		}
 		fb := old.FlightsByID[b]
-
 		if !fa.DepartureTime.Equal(fb.DepartureTime) {
 			return fa.DepartureTime.Before(fb.DepartureTime)
 		}
@@ -139,7 +145,9 @@ func appendCopy(old []uuid.UUID, id uuid.UUID) []uuid.UUID {
 }
 
 func insertSorted(old []uuid.UUID, id uuid.UUID, less func(a, b uuid.UUID) bool) []uuid.UUID {
-	i := sort.Search(len(old), func(i int) bool { return less(id, old[i]) })
+	i := sort.Search(len(old), func(i int) bool {
+		return less(id, old[i])
+	})
 	next := make([]uuid.UUID, len(old)+1)
 	copy(next, old[:i])
 	next[i] = id

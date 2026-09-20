@@ -19,7 +19,7 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 
 func (repo *Repository) getAirportByCode(ctx context.Context, airportCode string) (string, error) {
 	var name string
-	err := repo.db.QueryRow(ctx, "select name from airports where airport_code = $1", airportCode).Scan(&name)
+	err := repo.db.QueryRow(ctx, "select airport_name from airports where airport_code = $1", airportCode).Scan(&name)
 	if err != nil {
 		return "", err
 	}
@@ -50,10 +50,10 @@ func (repo *Repository) createFlight(ctx context.Context, reqBody CreateFlightDT
 			$6,
 			$7,
 			$8,
-			EXTRACT(EPOCH FROM ($8 - $7)) / 60)::INTEGER,
+			(EXTRACT(EPOCH FROM ($8 - $7)) / 60)::INTEGER,
 			$9
 		)
-		RETURNING flight_id
+		RETURNING id
 	`,
 		reqBody.FlightNumber,
 		reqBody.AirlineName,

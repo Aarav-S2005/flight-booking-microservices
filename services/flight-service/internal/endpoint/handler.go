@@ -26,7 +26,7 @@ func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth) chi.Router {
 	r.Get("/flight/{flightID}", h.getFlight)
 	r.Post("/admin/flight", h.createFlight)
 	r.Get("/flight/validate-multiple", h.validateFlights)
-	r.Get("/flight/validate/{flightID}", h.validateFlightID)
+	r.Get("/flight/validate/{flight-id}", h.validateFlightID)
 	r.Get("/search", h.searchFlights)
 	r.Post("/flight/validate-fare", h.validateFare)
 	return r
@@ -78,20 +78,10 @@ func (h *Handler) createFlight(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) validateFlights(w http.ResponseWriter, r *http.Request) {
 	ids := r.URL.Query()["flightID"]
-	flightIDs := make([]uuid.UUID, 0, len(ids))
-
-	if flightIDs == nil {
-		http.Error(w, "flight_id is required", http.StatusBadRequest)
+	flightIDs, err := utility.ToUUIDs(ids)
+	if err != nil {
+		http.Error(w, "invalid flight_id", http.StatusBadRequest)
 		return
-	}
-
-	for _, stringId := range ids {
-		id, err := uuid.Parse(stringId)
-		if err != nil {
-			http.Error(w, "invalid flight_id", http.StatusBadRequest)
-			return
-		}
-		flightIDs = append(flightIDs, id)
 	}
 	resBody, err := h.service.checkAllFlightIDs(r.Context(), flightIDs)
 	if err != nil {

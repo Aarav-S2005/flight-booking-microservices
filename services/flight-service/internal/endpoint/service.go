@@ -9,6 +9,7 @@ import (
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/database"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/store"
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
+	"github.com/Aarav-S2005/flight-booking-microservices/shared/utility"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 )
@@ -116,18 +117,17 @@ func (s *Service) checkFlightID(ctx context.Context, flightID uuid.UUID) (Valida
 }
 
 func (s *Service) validateFare(ctx context.Context, reqBody ValidateFareRequestDTO) error {
+	if reqBody.FlightIDs == nil || len(reqBody.FlightIDs) == 0 {
+		return app_error.BadRequest("empty flight IDs", errors.New("invalid request"))
+	}
 	snap := s.registry.Get()
-	flightIDs := make([]uuid.UUID, 0, len(reqBody.FlightIDs))
-	for _, id := range reqBody.FlightIDs {
-		fuuid, err := uuid.Parse(id)
-		if err != nil {
-			return err
-		}
-		flightIDs = append(flightIDs, fuuid)
+	flightIDs, err := utility.ToUUIDs(reqBody.FlightIDs)
+	if err != nil {
+		return err
 	}
 	fare := snap.FlightsByID[flightIDs[0]].Price
 	for i := 1; i < len(flightIDs); i++ {
-		fare += snap.FlightsByID[flightIDs[i]].Price
+		fare += snap.FlightsByID[flightIDs[i]].Price * 90 / 100
 	}
 	if fare != reqBody.TotalFare {
 		return app_error.Conflict("fare requested does not match requested fare", errors.New("fare requested does not match requested fare"))
@@ -165,6 +165,10 @@ func dfs(snap *store.FlightsSnapshot, curAirport string, stops int, query Query,
 		flight, ok := snap.FlightsByID[flightID]
 		// flight existence check
 		if !ok {
+			continue
+		}
+		// seat check
+		if flight.SeatsLeft <= 0 {
 			continue
 		}
 		// airline check
