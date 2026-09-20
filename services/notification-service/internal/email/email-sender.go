@@ -26,12 +26,13 @@ func (s *Sender) Send(to, subject, body string) error {
 	)
 
 	msg := []byte(
-		"From: " + s.Username + "\r\n" +
-			"To: " + to + "\r\n" +
-			"Subject: " + subject + "\r\n" +
-			"Content-Type: text/plain; charset=UTF-8\r\n" +
-			"\r\n" +
-			body,
+    "From: " + s.Username + "\r\n" +
+        "To: " + to + "\r\n" +
+        "Subject: " + subject + "\r\n" +
+        "MIME-Version: 1.0\r\n" +
+        "Content-Type: text/html; charset=UTF-8\r\n" +
+        "\r\n" +
+        body,
 	)
 
 	return smtp.SendMail(

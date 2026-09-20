@@ -41,6 +41,9 @@ func (s *service) Notify(ctx context.Context, job Job) error {
 	}
 
 	err = s.sender.Send(userEmail, subject, body)
+	if err != nil {
+		return err
+	}
 	rec := database.Notification{
 		RecipientEmail: userEmail,
 		Subject:        subject,

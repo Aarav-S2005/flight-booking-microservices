@@ -30,7 +30,7 @@ const (
 						<td style="padding:32px;">
 
 							<p style="font-size:16px;">
-								Hi {{.Name}},
+								Hi,
 							</p>
 
 							<p style="font-size:16px; line-height:1.6;">
@@ -104,7 +104,7 @@ const (
 						<td style="padding:32px;">
 
 							<p style="font-size:16px;">
-								Hi {{.Name}},
+								Hi,
 							</p>
 
 							<p style="font-size:16px; line-height:1.6;">
@@ -186,7 +186,7 @@ const (
 						<td style="padding:32px;">
 
 							<p style="font-size:16px;">
-								Hi {{.Name}},
+								Hi,
 							</p>
 
 							<p style="font-size:16px; line-height:1.6;">
@@ -279,7 +279,7 @@ const (
 						<td style="padding:32px;">
 
 							<p style="font-size:16px;">
-								Hi {{.Name}},
+								Hi,
 							</p>
 
 							<p style="font-size:16px; line-height:1.6;">
