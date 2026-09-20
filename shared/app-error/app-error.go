@@ -23,7 +23,7 @@ func HandleError(w http.ResponseWriter, err error) {
 	if !errors.As(err, &appErr) {
 		appErr = InternalServer(err)
 	}
-	_ = utility.ConvertStructToJSON(w, appErr.StatusCode, Response{Success: false, Message: appErr.Message + ": " + err.Error()})
+	_ = utility.ConvertStructToJSON(w, appErr.StatusCode, Response{Success: false, Message: err.Error()})
 }
 
 func (e *AppError) Error() string {

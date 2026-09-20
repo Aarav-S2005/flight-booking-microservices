@@ -22,10 +22,15 @@ func ConvertJSONToStruct(r *http.Request, v interface{}) error {
 }
 
 func ConvertStructToJSON(w http.ResponseWriter, status int, data interface{}) error {
+	body, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-
-	return json.NewEncoder(w).Encode(data)
+	_, err = w.Write(body)
+	return err
 }
 
 func ToUUIDs(ids []string) ([]uuid.UUID, error) {

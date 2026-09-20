@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/database"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/flight-service/internal/store"
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
 	"github.com/go-resty/resty/v2"

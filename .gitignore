@@ -3,3 +3,4 @@
 /services/*/.env
 
 secret
+POTENTIAL_ERRORS.md

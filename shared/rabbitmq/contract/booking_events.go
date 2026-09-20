@@ -14,8 +14,8 @@ const (
 )
 
 type FlightSeatUpdatedEvent struct {
-	FlightID string `json:"flightId"`
-	NewSeat  int    `json:"newSeat"`
+	FlightID string `json:"flight_id"`
+	NewSeat  int    `json:"new_seat"`
 	Version  uint64 `json:"version"`
 }
 

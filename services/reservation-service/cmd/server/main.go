@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/Aarav-S2005/flight-booking-microservices/services/reservation-service/config"
+	"github.com/Aarav-S2005/flight-booking-microservices/services/reservation-service/internal/async"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/reservation-service/internal/database"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/reservation-service/internal/endpoint"
 	dbInitializer "github.com/Aarav-S2005/flight-booking-microservices/shared/db"
@@ -35,6 +36,8 @@ func main() {
 	}
 	log.Println("Schema Initialized and Aircraft seeded...")
 
+	repo := database.NewRepository(db)
+
 	conn, err := rabbitmq.Connect(cfg.RabbitMQURL)
 	if err != nil {
 		log.Fatal(err)
@@ -42,6 +45,14 @@ func main() {
 	}
 	log.Println("RabbitMQ initialized...")
 	defer conn.Close()
+	if err := conn.DeclareTopology(async.Topology()); err != nil {
+		log.Fatal(err)
+	}
+	consumer := rabbitmq.NewConsumer(conn, async.Queue)
+	err = consumer.Consume(ctx, "notification-service", 10, async.HandleBookingConfirmed(repo))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	pubKey, err := keys.GetPublicKey(cfg.PublicJwtSecretPath)
 	if err != nil {

@@ -49,7 +49,7 @@ func main() {
 	if err := conn.DeclareTopology(async.Topology()); err != nil {
 		log.Fatal(err)
 	}
-	consumer := rabbitmq.NewConsumer(conn, "notifications.queue")
+	consumer := rabbitmq.NewConsumer(conn, async.Queue)
 	err = consumer.Consume(ctx, "notification-service", 10, async.NewNotificationHandler(svc))
 	if err != nil {
 		panic(err)

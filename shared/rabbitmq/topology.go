@@ -1,5 +1,7 @@
 package rabbitmq
 
+import "fmt"
+
 type ExchangeConfig struct {
 	Name       string
 	Kind       string // "topic", "direct", "fanout"
@@ -20,23 +22,6 @@ type BindingConfig struct {
 	RoutingKey string
 }
 
-func (c *Connection) DeclareExchange(cfg ExchangeConfig) error {
-	return c.ch.ExchangeDeclare(
-		cfg.Name, cfg.Kind, cfg.Durable, cfg.AutoDelete, false, false, nil,
-	)
-}
-
-func (c *Connection) DeclareQueue(cfg QueueConfig) error {
-	_, err := c.ch.QueueDeclare(
-		cfg.Name, cfg.Durable, cfg.AutoDelete, cfg.Exclusive, false, nil,
-	)
-	return err
-}
-
-func (c *Connection) BindQueue(b BindingConfig) error {
-	return c.ch.QueueBind(b.Queue, b.RoutingKey, b.Exchange, false, nil)
-}
-
 type Topology struct {
 	Exchanges []ExchangeConfig
 	Queues    []QueueConfig
@@ -44,19 +29,25 @@ type Topology struct {
 }
 
 func (c *Connection) DeclareTopology(t Topology) error {
+	ch, err := c.NewChannel()
+	if err != nil {
+		return err
+	}
+	defer ch.Close()
+
 	for _, e := range t.Exchanges {
-		if err := c.DeclareExchange(e); err != nil {
-			return err
+		if err := ch.ExchangeDeclare(e.Name, e.Kind, e.Durable, e.AutoDelete, false, false, nil); err != nil {
+			return fmt.Errorf("rabbitmq: declare exchange %q failed: %w", e.Name, err)
 		}
 	}
 	for _, q := range t.Queues {
-		if err := c.DeclareQueue(q); err != nil {
-			return err
+		if _, err := ch.QueueDeclare(q.Name, q.Durable, q.AutoDelete, q.Exclusive, false, nil); err != nil {
+			return fmt.Errorf("rabbitmq: declare queue %q failed: %w", q.Name, err)
 		}
 	}
 	for _, b := range t.Bindings {
-		if err := c.BindQueue(b); err != nil {
-			return err
+		if err := ch.QueueBind(b.Queue, b.RoutingKey, b.Exchange, false, nil); err != nil {
+			return fmt.Errorf("rabbitmq: bind queue %q failed: %w", b.Queue, err)
 		}
 	}
 	return nil

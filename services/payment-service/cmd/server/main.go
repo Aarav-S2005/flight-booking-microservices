@@ -30,7 +30,7 @@ func main() {
 	if err := conn.DeclareTopology(async.Topology()); err != nil {
 		log.Fatal(err)
 	}
-	consumer := rabbitmq.NewConsumer(conn, "payments.queue")
+	consumer := rabbitmq.NewConsumer(conn, async.Queue)
 	err = consumer.Consume(ctx, "payment-service", 10, async.AddNewDuePaymentRecord(db))
 	if err != nil {
 		log.Fatal(err)

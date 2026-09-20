@@ -57,7 +57,6 @@ func main() {
 	if err := conn.DeclareTopology(async.Topology()); err != nil {
 		log.Fatal(err)
 	}
-
 	consumer := rabbitmq.NewConsumer(conn, async.Queue)
 
 	err = consumer.Consume(ctx, "flight-service-consumer", 20,

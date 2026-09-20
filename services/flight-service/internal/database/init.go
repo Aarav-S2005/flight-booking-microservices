@@ -23,7 +23,7 @@ const (
 		    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			flight_number VARCHAR(6) NOT NULL UNIQUE,
 			airline_name VARCHAR(255) NOT NULL,
-			aircraft_type char(4) NOT NULL,
+			aircraft_type varchar(20) NOT NULL,
 			seats_left int NOT NULL,
 			source_airport_code CHAR(3) NOT NULL,
 			destination_airport_code CHAR(3) NOT NULL,
