@@ -24,7 +24,7 @@ type Response struct {
 
 func (c *client) GetEmailFromAuthService(userID string) (string, error) {
 	var resBody Response
-	resp, err := c.client.R().SetBody(&resBody).Get("/email/" + userID)
+	resp, err := c.client.R().SetBody(&resBody).Get("/users/email/" + userID)
 	if err != nil {
 		return "", fmt.Errorf("get email from auth service failed: %s", err.Error())
 	}

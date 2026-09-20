@@ -62,7 +62,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	SetCookie(w, "jwt", token)
-	utility.ConvertStructToJSON(w, 201, LoginResponse{Email: reqBody.Email})
+	utility.ConvertStructToJSON(w, 200, LoginResponse{Email: reqBody.Email})
 }
 
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {

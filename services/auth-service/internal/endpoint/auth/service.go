@@ -15,10 +15,15 @@ import (
 type Service struct {
 	repo      *database.Repository
 	tokenAuth *jwtauth.JWTAuth
+	dummyHash string
 }
 
 func NewService(db *pgxpool.Pool, tokenAuth *jwtauth.JWTAuth) *Service {
-	return &Service{repo: database.NewRepository(db), tokenAuth: tokenAuth}
+	dh, err := generateDummyHash()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return &Service{repo: database.NewRepository(db), tokenAuth: tokenAuth, dummyHash: dh}
 }
 
 func (s *Service) signup(ctx context.Context, reqBody LoginRequest) (string, error) {
@@ -36,22 +41,29 @@ func (s *Service) signup(ctx context.Context, reqBody LoginRequest) (string, err
 		}
 	}
 	token, err := jwt.SignJwt(s.tokenAuth, id)
+	if err != nil {
+		return "", err
+	}
 	return token, nil
 }
 
 func (s *Service) login(ctx context.Context, reqBody LoginRequest) (string, error) {
 	user, err := s.repo.FindUserByEmail(ctx, reqBody.Email)
+	passwordHash := s.dummyHash
 	if err != nil {
 		log.Print("wrong email")
-		if errors.Is(err, database.ErrUserNotFound) {
-			return "", app_error.Unauthorized("invalid email or password", err)
+		if !errors.Is(err, database.ErrUserNotFound) {
+			return "", err
 		}
-		return "", err
 	}
-	if !VerifyPassword(reqBody.Password, user.PasswordHash) {
+	passwordHash = user.PasswordHash
+	if !VerifyPassword(reqBody.Password, passwordHash) {
 		log.Print("wrong password")
 		return "", app_error.Unauthorized("invalid email or password", errors.New("invalid email or password"))
 	}
 	token, err := jwt.SignJwt(s.tokenAuth, user.ID)
+	if err != nil {
+		return "", err
+	}
 	return token, nil
 }

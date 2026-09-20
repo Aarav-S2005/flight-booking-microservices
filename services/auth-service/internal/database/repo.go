@@ -64,9 +64,12 @@ func (repo *Repository) FindUserByEmail(ctx context.Context, email string) (*Use
 
 func (repo *Repository) FindUserByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	var user User
-	err := repo.db.QueryRow(ctx, "select * from users where id = $1", id).Scan(&user.ID, user.Email, &user.PasswordHash, &user.CreatedAt, &user.UpdatedAt)
+	err := repo.db.QueryRow(ctx, "select * from users where id = $1", id).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
-		return nil, ErrUserNotFound
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
 	}
 	return &user, nil
 }

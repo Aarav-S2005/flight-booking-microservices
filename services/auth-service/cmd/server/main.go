@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Aarav-S2005/flight-booking-microservices/services/auth-service/config"
-	userDB "github.com/Aarav-S2005/flight-booking-microservices/services/auth-service/internal/db"
+	userDB "github.com/Aarav-S2005/flight-booking-microservices/services/auth-service/internal/database"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/auth-service/internal/endpoint"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/auth-service/internal/jwt"
 	dbInitializer "github.com/Aarav-S2005/flight-booking-microservices/shared/db"
