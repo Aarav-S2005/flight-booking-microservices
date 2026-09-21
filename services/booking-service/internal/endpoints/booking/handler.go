@@ -1,9 +1,11 @@
 package booking
 
 import (
+	"log/slog"
 	"net/http"
 
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
+	"github.com/Aarav-S2005/flight-booking-microservices/shared/middlewares"
 	auth_middlewares "github.com/Aarav-S2005/flight-booking-microservices/shared/middlewares/auth-middlewares"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/utility"
@@ -18,16 +20,15 @@ type Handler struct {
 	service *Service
 }
 
-func NewHandler(db *pgxpool.Pool, flightServiceURL, reservationServiceURL string, rdb *redis.Client, publisher *rabbitmq.Publisher) *Handler {
-	return &Handler{service: NewService(NewRepository(db), flightServiceURL, reservationServiceURL, rdb, publisher)}
+func NewHandler(db *pgxpool.Pool, flightServiceURL, reservationServiceURL, paymentServiceURL string, rdb *redis.Client, publisher *rabbitmq.Publisher) *Handler {
+	return &Handler{service: NewService(NewRepository(db), flightServiceURL, reservationServiceURL, paymentServiceURL, rdb, publisher)}
 }
 
-func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth) chi.Router {
+func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth, logger *slog.Logger) chi.Router {
 	r := chi.NewRouter()
-	r.Group(func(r chi.Router) {
-		r.Use(auth_middlewares.Verifier(tokenAuth))
-		r.Use(auth_middlewares.Authenticator(tokenAuth))
-	})
+	r.Use(auth_middlewares.Verifier(tokenAuth))
+	r.Use(auth_middlewares.Authenticator(tokenAuth))
+	r.Use(middlewares.Logger(logger))
 	r.Post("/book", h.bookTicket)
 	r.Get("/booking", h.getAllBookings)
 	r.Post("/validate-booking", h.validateBookingForPayment)
@@ -89,6 +90,7 @@ func (h *Handler) validateBookingForPayment(w http.ResponseWriter, r *http.Reque
 	bookingUserID, err := uuid.Parse(reqBody.BookingID)
 	if err != nil {
 		app_error.HandleError(w, app_error.BadRequest("invalid booking id", err))
+		return
 	}
 	totalFare, err := h.service.validateBooking(r.Context(), userID, bookingUserID)
 	if err != nil {

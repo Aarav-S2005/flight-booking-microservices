@@ -25,11 +25,13 @@ type Service struct {
 	client                *resty.Client
 	flightServiceURL      string
 	reservationServiceURL string
+	paymentServiceURL     string
 	rdb                   *redis.Client
 	publisher             *rabbitmq.Publisher
+	flightGroup           singleflight.Group
 }
 
-func NewService(repo *Repository, flightServiceURL, reservationServiceURL string, rdb *redis.Client, publisher *rabbitmq.Publisher) *Service {
+func NewService(repo *Repository, flightServiceURL, reservationServiceURL, paymentServiceURL string, rdb *redis.Client, publisher *rabbitmq.Publisher) *Service {
 	client := resty.New().SetHeader("Content-Type", "application/json")
 	return &Service{
 		repo:                  repo,
@@ -38,6 +40,7 @@ func NewService(repo *Repository, flightServiceURL, reservationServiceURL string
 		reservationServiceURL: reservationServiceURL,
 		rdb:                   rdb,
 		publisher:             publisher,
+		flightGroup:           singleflight.Group{},
 	}
 }
 
@@ -190,6 +193,18 @@ func (s *Service) validatePayment(ctx context.Context, reqBody ValidateBookingFo
 
 	deadline := creationTime.Add(10 * time.Minute)
 	if reqBody.PaymentTime.After(deadline) {
+		seatUpdates, err := s.repo.increaseFlightSeatsByBookingID(ctx, bookingID)
+		if err != nil {
+			log.Fatal("could not update flight seats by booking id", err)
+			return false, nil
+		}
+		for _, update := range seatUpdates {
+			_ = s.publisher.Publish(ctx, contract.RoutingFlightSeatUpdated, contract.FlightSeatUpdatedEvent{
+				FlightID: update.FlightID.String(),
+				NewSeat:  update.SeatsLeft,
+				Version:  update.Version,
+			})
+		}
 		err = s.repo.updateStatusByBookingID(ctx, bookingID, "FAILED")
 		if err != nil {
 			if errors.Is(err, ErrBookingNotFound) {
@@ -221,47 +236,47 @@ func (s *Service) validatePayment(ctx context.Context, reqBody ValidateBookingFo
 }
 
 func (s *Service) validateBookingForReservation(ctx context.Context, userID, bookingID uuid.UUID) (ValidateBookingForReservationResponseDTO, error) {
+	status, err := s.repo.checkStatusByBookingID(ctx, bookingID, userID)
+	if err != nil {
+		if errors.Is(err, ErrBookingNotFound) {
+			return ValidateBookingForReservationResponseDTO{}, app_error.NotFound("booking not found", err)
+		}
+		return ValidateBookingForReservationResponseDTO{}, err
+	}
+	if status == string(database.BookingFailed) {
+		return ValidateBookingForReservationResponseDTO{}, app_error.BadRequest("booking failed, no reservation", errors.New("booking failed"))
+	}
+	if status != string(database.BookingConfirmed) {
+
+		req := ValidatePaymentRequestDTO{
+			BookingID: bookingID.String(),
+			UserID:    userID.String(),
+		}
+
+		resp, err := s.client.R().SetBody(req).Get(s.paymentServiceURL + "/validate-payment")
+		if err != nil {
+			return ValidateBookingForReservationResponseDTO{}, err
+		}
+		if resp.StatusCode() >= 400 {
+			return ValidateBookingForReservationResponseDTO{}, app_error.BadRequest("booking failed, no reservation", errors.New("booking failed"))
+		}
+		if resp.StatusCode() == http.StatusAccepted {
+			return ValidateBookingForReservationResponseDTO{
+				Status: "PAYMENT_PENDING",
+			}, nil
+		}
+		err = s.repo.updateStatusByBookingID(ctx, bookingID, "CONFIRMED")
+		if err != nil {
+			log.Println("DB failed to update status ", err)
+		}
+	}
+
 	data, err := s.rdb.Get(ctx, bookingID.String()+"-for-res-noti").Bytes()
 	var respBody contract.BookingConfirmedForReservationEvent
 	var strPassengerIDs []string
 	var strFlightIDs []string
 	if err != nil || json.Unmarshal(data, &respBody) != nil {
 		log.Println("redis failed to get booking data: ", err)
-
-		status, err := s.repo.checkStatusByBookingID(ctx, bookingID, userID)
-		if err != nil {
-			if errors.Is(err, ErrBookingNotFound) {
-				return ValidateBookingForReservationResponseDTO{}, app_error.NotFound("booking not found", err)
-			}
-			return ValidateBookingForReservationResponseDTO{}, err
-		}
-		if status == string(database.BookingFailed) {
-			return ValidateBookingForReservationResponseDTO{}, app_error.BadRequest("booking failed, no reservation", err)
-		}
-		if status != string(database.BookingConfirmed) {
-
-			req := ValidatePaymentRequestDTO{
-				BookingID: bookingID.String(),
-				UserID:    userID.String(),
-			}
-
-			resp, err := s.client.R().SetBody(req).Get(s.reservationServiceURL + "/validate-payment")
-			if err != nil {
-				return ValidateBookingForReservationResponseDTO{}, err
-			}
-			if resp.StatusCode() >= 400 {
-				return ValidateBookingForReservationResponseDTO{}, app_error.BadRequest("booking failed, no reservation", err)
-			}
-			if resp.StatusCode() == http.StatusAccepted {
-				return ValidateBookingForReservationResponseDTO{
-					Status: "PAYMENT_PENDING",
-				}, nil
-			}
-			err = s.repo.updateStatusByBookingID(ctx, bookingID, "CONFIRMED")
-			if err != nil {
-				log.Println("DB failed to update status ", err)
-			}
-		}
 		passengerIDs, err := s.repo.getPassengersIDbyBookingID(ctx, bookingID)
 		if err != nil {
 			if errors.Is(err, ErrBookingNotFound) {
@@ -288,8 +303,7 @@ func (s *Service) validateBookingForReservation(ctx context.Context, userID, boo
 // Helper
 
 func (s *Service) resolveFlight(ctx context.Context, flightID string) (FlightRecord, error) {
-	flightGroup := singleflight.Group{}
-	v, err, _ := flightGroup.Do(flightID, func() (interface{}, error) {
+	v, err, _ := s.flightGroup.Do(flightID, func() (interface{}, error) {
 		flightIDUUID, err := uuid.Parse(flightID)
 		if err != nil {
 			return nil, err
@@ -301,7 +315,7 @@ func (s *Service) resolveFlight(ctx context.Context, flightID string) (FlightRec
 		if exists {
 			return FlightRecord{}, nil
 		}
-		resp, err := s.client.R().SetQueryParam("flight-id", flightID).Get(s.flightServiceURL + "/flight/validate")
+		resp, err := s.client.R().Get(s.flightServiceURL + "/flight/validate/" + flightID)
 		if err != nil {
 			return FlightRecord{}, err
 		}

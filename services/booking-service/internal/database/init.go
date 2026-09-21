@@ -13,7 +13,7 @@ const (
 			CREATE TYPE booking_status AS ENUM (
 				'PAYMENT_PENDING',
 				'CONFIRMED',
-				'FAILED',
+				'FAILED'
 			);
 		EXCEPTION
 			WHEN duplicate_object THEN NULL;
@@ -44,7 +44,7 @@ const (
 		   last_name VARCHAR(100) NOT NULL,
 		   age int NOT NULL,
 		   gender VARCHAR(20) NOT NULL,
-		   passport_number VARCHAR(50) UNIQUE NOT NULL,
+		   passport_number VARCHAR(50) NOT NULL,
 		   CONSTRAINT fk_passengers_booking
 			  FOREIGN KEY (booking_id)
 			  REFERENCES bookings(booking_id)
@@ -78,9 +78,9 @@ const (
 			flight_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			aircraft_type VARCHAR(40) NOT NULL,
 			seats_left INT NOT NULL,
-		    total_seats INT NOT NULL,
-		    version BIGINT NOT NULL,
-			CHECK (seats_left >= 0),			
+			total_seats INT NOT NULL,
+			version BIGINT NOT NULL,
+			CHECK (seats_left >= 0)
 		);
 	`
 )

@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/Aarav-S2005/flight-booking-microservices/services/booking-service/config"
 	"github.com/Aarav-S2005/flight-booking-microservices/services/booking-service/internal/async"
@@ -72,8 +74,10 @@ func main() {
 	tokenAuth := jwtauth.New("ES256", nil, pubKey)
 	log.Println("Token auth initialized...")
 
-	h := booking.NewHandler(db, cfg.FlightServiceURL, cfg.ReservationServiceURL, rdb, publisher)
-	r := h.InitRoutes(tokenAuth)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	h := booking.NewHandler(db, cfg.FlightServiceURL, cfg.ReservationServiceURL, cfg.PaymentServiceURL, rdb, publisher)
+	r := h.InitRoutes(tokenAuth, logger)
 	log.Println("Endpoints Initialized...")
 
 	err = http.ListenAndServe(":"+cfg.Port, r)

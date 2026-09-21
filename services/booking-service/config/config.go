@@ -12,6 +12,7 @@ type Config struct {
 	RabbitMQURL           string `env:"RABBITMQ_URL"`
 	FlightServiceURL      string `env:"FLIGHT_SERVICE_URL"`
 	ReservationServiceURL string `env:"RESERVATION_SERVICE_URL"`
+	PaymentServiceURL     string `env:"PAYMENT_SERVICE_URL"`
 	RedisURI              string `env:"REDIS_URI"`
 }
 

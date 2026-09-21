@@ -102,7 +102,7 @@ func (repo *Repository) existsByFlightID(ctx context.Context, flightID uuid.UUID
 	var exists bool
 	err := repo.db.QueryRow(
 		ctx,
-		"SELECT EXISTS (SELECT 1 FROM flights WHERE id = $1)",
+		"SELECT EXISTS (SELECT 1 FROM flights WHERE flight_id = $1)",
 		flightID,
 	).Scan(&exists)
 	if err != nil {
@@ -237,7 +237,7 @@ func (repo *Repository) getTotalFareByBookingIDAndUserID(ctx context.Context, bo
 
 func (repo *Repository) getBookingCreationTime(ctx context.Context, userID, bookingID uuid.UUID) (time.Time, error) {
 	var creationTime time.Time
-	err := repo.db.QueryRow(ctx, "select created_at from bookings where booking_id = $1 && booking_user_id = $2", bookingID, userID).Scan(&creationTime)
+	err := repo.db.QueryRow(ctx, "select created_at from bookings where booking_id = $1 and booking_user_id = $2", bookingID, userID).Scan(&creationTime)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return time.Time{}, ErrBookingNotFound
@@ -248,7 +248,7 @@ func (repo *Repository) getBookingCreationTime(ctx context.Context, userID, book
 }
 
 func (repo *Repository) updateStatusByBookingID(ctx context.Context, bookingID uuid.UUID, status string) error {
-	_, err := repo.db.Exec(ctx, "update status set status = $1 where booking_id = $1", status, bookingID)
+	_, err := repo.db.Exec(ctx, "update bookings set status = $1 where booking_id = $1", status, bookingID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrBookingNotFound
@@ -260,7 +260,7 @@ func (repo *Repository) updateStatusByBookingID(ctx context.Context, bookingID u
 
 func (repo *Repository) getPassengersIDbyBookingID(ctx context.Context, bookingID uuid.UUID) ([]uuid.UUID, error) {
 	var passengerIDs []uuid.UUID
-	rows, err := repo.db.Query(ctx, "select passengers_id from passengers where booking_id = $1", bookingID)
+	rows, err := repo.db.Query(ctx, "select passenger_id from passengers where booking_id = $1", bookingID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrBookingNotFound
@@ -314,6 +314,69 @@ func (repo *Repository) checkStatusByBookingID(ctx context.Context, bookingID, u
 		return "", err
 	}
 	return status, nil
+}
+
+func (repo *Repository) increaseFlightSeatsByBookingID(ctx context.Context, bookingID uuid.UUID) ([]SeatUpdate, error) {
+	tx, err := repo.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	const query = `
+		WITH passenger_count AS (
+			SELECT COUNT(*)::int AS count
+			FROM passengers
+			WHERE booking_id = $1
+		),
+		updated_flights AS (
+			UPDATE flights f
+			SET
+				seats_left = f.seats_left + pc.count,
+				version = f.version + 1
+			FROM flight_segments fs
+			CROSS JOIN passenger_count pc
+			WHERE fs.booking_id = $1
+			  AND f.flight_id = fs.flight_id
+			RETURNING
+				f.flight_id,
+				f.seats_left,
+				f.version
+		)
+		SELECT
+			flight_id,
+			seats_left,
+			version
+		FROM updated_flights
+		ORDER BY flight_id
+	`
+	rows, err := tx.Query(ctx, query, bookingID)
+	if err != nil {
+		return nil, fmt.Errorf("increase flight seats for booking %s: %w", bookingID, err)
+	}
+	defer rows.Close()
+
+	updates := make([]SeatUpdate, 0)
+
+	for rows.Next() {
+		var update SeatUpdate
+
+		if err := rows.Scan(
+			&update.FlightID,
+			&update.SeatsLeft,
+			&update.Version,
+		); err != nil {
+			return nil, fmt.Errorf("scan seat update: %w", err)
+		}
+		updates = append(updates, update)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate seat updates: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit seat updates: %w", err)
+	}
+
+	return updates, nil
 }
 
 // Booking Transaction Breakdown
@@ -395,7 +458,7 @@ func insertAllPassengers(ctx context.Context, tx pgx.Tx, passengerDetails []Pass
 	}
 
 	query := fmt.Sprintf(`
-        INSERT INTO passenger (
+        INSERT INTO passengers (
             booking_id,
             first_name,
             last_name,
@@ -404,7 +467,7 @@ func insertAllPassengers(ctx context.Context, tx pgx.Tx, passengerDetails []Pass
             passport_number
         )
         VALUES %s
-        RETURNING id
+        RETURNING passenger_id
     `, strings.Join(values, ", "))
 
 	rows, err := tx.Query(ctx, query, args...)
