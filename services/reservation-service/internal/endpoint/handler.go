@@ -57,5 +57,10 @@ func (h *Handler) reserveSeats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) getAircraftDetails(w http.ResponseWriter, r *http.Request) {
+	aircraftType := r.URL.Query().Get("aircraft-type")
+	if aircraftType == "" {
+		app_error.HandleError(w, app_error.BadRequest("aircraft type is required", errors.New("aircraft type is required")))
+		return
+	}
 
 }

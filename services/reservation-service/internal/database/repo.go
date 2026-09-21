@@ -108,6 +108,18 @@ func (r *Repository) InsertReservationWithoutSeatReservation(ctx context.Context
 	return tx.Commit(ctx)
 }
 
+func (r *Repository) GetSeatsLeftByAircraftType(ctx context.Context, aircraftType string) (int, error) {
+	var totalSeats int
+	err := r.db.QueryRow(ctx, "select total_seats from aircraft where aircraft_type = $1", aircraftType).Scan(&totalSeats)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrNotFound
+		}
+		return 0, err
+	}
+	return totalSeats, nil
+}
+
 // TRANSACTION FOR SEAT RESERVATION
 
 type ReservationTxModel struct {

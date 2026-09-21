@@ -29,3 +29,7 @@ type ValidateBookingForReservationResponseDTO struct {
 	FlightIDs  []string `json:"flight_ids"`
 	Status     string   `json:"status"`
 }
+
+type GetFlightSeatsFromReservationRequest struct {
+	SeatsLeft int `json:"seats_left"`
+}

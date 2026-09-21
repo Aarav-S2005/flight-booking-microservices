@@ -159,3 +159,14 @@ func (s *Service) reserveSeats(ctx context.Context, reqBody ReserveSeatsRequestD
 	}
 	return nil
 }
+
+func (s *Service) getAircraftDetails(ctx context.Context, aircraftType string) (GetFlightSeatsFromReservationRequest, error) {
+	totalSeats, err := s.repo.GetSeatsLeftByAircraftType(ctx, aircraftType)
+	if err != nil {
+		if errors.Is(err, database.ErrNotFound) {
+			return GetFlightSeatsFromReservationRequest{}, app_error.NotFound("aircraft not found", err)
+		}
+		return GetFlightSeatsFromReservationRequest{}, err
+	}
+	return GetFlightSeatsFromReservationRequest{SeatsLeft: totalSeats}, nil
+}

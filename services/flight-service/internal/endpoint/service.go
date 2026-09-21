@@ -66,7 +66,7 @@ func (s *Service) getFlight(ctx context.Context, flightID uuid.UUID) (GetFlightR
 }
 
 func (s *Service) createFlight(ctx context.Context, reqBody CreateFlightDTO) error {
-	var resBody GetFlightSeatsFromBookingResponse
+	var resBody GetFlightSeatsFromReservationResponse
 	resp, err := s.client.R().SetQueryParam("aircraft-type", reqBody.AircraftType).SetResult(&resBody).Get("/aircrafts")
 	if err != nil {
 		return err

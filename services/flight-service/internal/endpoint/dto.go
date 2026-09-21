@@ -54,7 +54,7 @@ type CreateFlightDTO struct {
 	Price                  int       `json:"price"`
 }
 
-type GetFlightSeatsFromBookingResponse struct {
+type GetFlightSeatsFromReservationResponse struct {
 	SeatsLeft int `json:"seats_left"`
 }
 
