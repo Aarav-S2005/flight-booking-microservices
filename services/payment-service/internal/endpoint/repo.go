@@ -36,9 +36,6 @@ func (r *Repository) findRecordByUserIDAndBookingID(ctx context.Context, userID,
 }
 
 func (r *Repository) savePayment(ctx context.Context, paymentTime time.Time, userID, bookingID uuid.UUID, amount int) error {
-	_, err := r.db.Exec(ctx, "insert into bookings (booking_id, user_id, amount, payment_completed_at) values ($1, $2, $3, $4) on conflict (booking_id, user_id) do update set payment_completed_at = $4", bookingID, userID, amount, paymentTime)
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err := r.db.Exec(ctx, "insert into payments (booking_id, user_id, amount, payment_completed_at) values ($1, $2, $3, $4) on conflict (booking_id, user_id) do update set payment_completed_at = $4", bookingID, userID, amount, paymentTime)
+	return err
 }

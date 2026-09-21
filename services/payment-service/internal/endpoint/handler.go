@@ -37,7 +37,7 @@ func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth, logger *slog.Logger) ch
 func (h *Handler) pay(w http.ResponseWriter, r *http.Request) {
 	userID, err := utility.UserIDFromContext(r.Context())
 	var reqBody MakePaymentDTO
-	err = utility.ConvertJSONToStruct(r, reqBody)
+	err = utility.ConvertJSONToStruct(r, &reqBody)
 	if err != nil {
 		app_error.HandleError(w, app_error.BadRequest("could not parse json", err))
 		return
@@ -45,6 +45,7 @@ func (h *Handler) pay(w http.ResponseWriter, r *http.Request) {
 	err = h.service.Pay(r.Context(), userID, reqBody)
 	if err != nil {
 		app_error.HandleError(w, err)
+		return
 	}
 	w.WriteHeader(200)
 }
@@ -64,6 +65,7 @@ func (h *Handler) validatePayment(w http.ResponseWriter, r *http.Request) {
 	userUUID, err := uuid.Parse(reqBody.UserID)
 	if err != nil {
 		app_error.HandleError(w, app_error.BadRequest("could not parse user ID", err))
+		return
 	}
 	paid, err := h.service.validatePayment(r.Context(), bookingUUID, userUUID)
 	if err != nil {

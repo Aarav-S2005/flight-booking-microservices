@@ -34,10 +34,10 @@ func (s *Service) Pay(ctx context.Context, userID uuid.UUID, reqBody MakePayment
 		return app_error.BadRequest("could not parse bookingID", err)
 	}
 
-	paymentRecord, err := s.repo.findRecordByUserIDAndBookingID(ctx, bookingID, userID)
+	paymentRecord, err := s.repo.findRecordByUserIDAndBookingID(ctx, userID, bookingID)
 
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, ErrPaymentNotFound) {
 			var respBody ValidateBookingResponseDTO
 			res, err := s.httpClient.R().SetResult(&respBody).SetBody(ValidateBookingRequestDTO{
 				BookingID: bookingID.String(),
