@@ -68,15 +68,11 @@ func (r *Repository) InsertReservationWithoutSeatReservation(ctx context.Context
         INSERT INTO reservation_flights (
             reservation_id,
             flight_id,
-            aircraft_type,
-            flight_departure_time,
             segment_number
         )
         SELECT
             $1,
             flight_id,
-            NULL,
-            NULL,
             row_number() OVER ()
         FROM unnest($2::uuid[]) AS flight_id
         ON CONFLICT (reservation_id, flight_id) DO NOTHING

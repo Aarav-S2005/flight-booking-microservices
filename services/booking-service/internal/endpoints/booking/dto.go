@@ -93,3 +93,19 @@ type ValidatePaymentRequestDTO struct {
 	BookingID string `json:"booking_id"`
 	UserID    string `json:"user_id"`
 }
+
+type GetFlightResponseFromFlightService struct {
+	FlightID               string    `json:"flight_id"`
+	FlightNumber           string    `json:"flight_number"`
+	AirlineName            string    `json:"airline_name"`
+	AircraftType           string    `json:"aircraft_type"`
+	SeatsLeft              int       `json:"seats_left"`
+	SourceAirportCode      string    `json:"source_airport_code"`
+	SourceAirportName      string    `json:"source_airport_name"`
+	DestinationAirportCode string    `json:"destination_airport_code"`
+	DestinationAirportName string    `json:"destination_airport_name"`
+	DepartureTime          time.Time `json:"departure_time"`
+	ArrivalTime            time.Time `json:"arrival_time"`
+	DurationInMins         int       `json:"duration"`
+	Price                  int       `json:"price"`
+}

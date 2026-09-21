@@ -52,7 +52,7 @@ const (
 		    UNIQUE (flight_id, column_allocated, seat_number),
 		    FOREIGN KEY (reservation_id, flight_id)
 			REFERENCES reservation_flights (reservation_id, flight_id)
-			ON DELETE CASCADE,
+			ON DELETE CASCADE
 		)
 	`
 )

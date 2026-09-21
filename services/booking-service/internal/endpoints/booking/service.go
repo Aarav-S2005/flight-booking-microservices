@@ -308,34 +308,32 @@ func (s *Service) resolveFlight(ctx context.Context, flightID string) (FlightRec
 		if err != nil {
 			return nil, err
 		}
-		exists, err := s.repo.existsByFlightID(ctx, flightIDUUID)
+		record, err := s.repo.existsByFlightID(ctx, flightIDUUID)
+		if errors.Is(err, ErrFlightNotFound) {
+			var respBody GetFlightResponseFromFlightService
+			resp, err := s.client.R().SetResult(&respBody).Get(s.flightServiceURL + "/flight/validate/" + flightID)
+			if err != nil {
+				return FlightRecord{}, err
+			}
+			if resp.StatusCode() != http.StatusOK {
+				return FlightRecord{}, app_error.UnprocessableEntity("flight ID not valid", errors.New("flight ID not valid"))
+			}
+			err = s.repo.addSingleFlight(ctx, FlightRecord{
+				FlightID:     flightIDUUID,
+				TotalSeats:   respBody.SeatsLeft,
+				AircraftType: respBody.AircraftType,
+			})
+			return FlightRecord{
+				FlightID:     flightIDUUID,
+				TotalSeats:   respBody.SeatsLeft,
+				AircraftType: respBody.AircraftType,
+			}, err
+		}
 		if err != nil {
 			return nil, err
 		}
-		if exists {
-			return FlightRecord{}, nil
-		}
-		resp, err := s.client.R().Get(s.flightServiceURL + "/flight/validate/" + flightID)
-		if err != nil {
-			return FlightRecord{}, err
-		}
-		if resp.StatusCode() != http.StatusOK {
-			return FlightRecord{}, app_error.UnprocessableEntity("flight ID not valid", errors.New("flight ID not valid"))
-		}
 
-		var flightRecord FlightRecord
-		resp, err = s.client.R().SetBody(resp.Body()).SetResult(&flightRecord).Post(s.reservationServiceURL + "/aircraft/aircraft-details")
-		if err != nil {
-			return FlightRecord{}, err
-		}
-		if resp.StatusCode() != http.StatusOK {
-			return FlightRecord{}, errors.New("error from reservation service: " + resp.Status())
-		}
-		err = s.repo.addSingleFlight(ctx, flightRecord)
-		if err != nil {
-			return FlightRecord{}, err
-		}
-		return flightRecord, nil
+		return record, nil
 	})
 	if err != nil {
 		return FlightRecord{}, err

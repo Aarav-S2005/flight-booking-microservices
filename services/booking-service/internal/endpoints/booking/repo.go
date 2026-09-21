@@ -16,6 +16,7 @@ var (
 	ErrInsufficientSeatsLeft = errors.New("insufficient number of seats left")
 	ErrBookingNotFound       = errors.New("booking not found")
 	ErrStatusNotConfirmed    = errors.New("status not confirmed")
+	ErrFlightNotFound        = errors.New("flight not found")
 )
 
 type Repository struct {
@@ -98,17 +99,21 @@ func (repo *Repository) findAllMissingIDs(ctx context.Context, flightIDs []uuid.
 	return missing, rows.Err()
 }
 
-func (repo *Repository) existsByFlightID(ctx context.Context, flightID uuid.UUID) (bool, error) {
-	var exists bool
+func (repo *Repository) existsByFlightID(ctx context.Context, flightID uuid.UUID) (FlightRecord, error) {
+	var seatsLeft int
+	var aircraftType string
 	err := repo.db.QueryRow(
 		ctx,
-		"SELECT EXISTS (SELECT 1 FROM flights WHERE flight_id = $1)",
+		"SELECT seats_left, aircraft_type FROM flights WHERE flight_id = $1 and seats_left is not null",
 		flightID,
-	).Scan(&exists)
+	).Scan(&seatsLeft, &aircraftType)
 	if err != nil {
-		return false, err
+		if errors.Is(err, pgx.ErrNoRows) {
+			return FlightRecord{}, ErrFlightNotFound
+		}
+		return FlightRecord{}, err
 	}
-	return exists, nil
+	return FlightRecord{FlightID: flightID, TotalSeats: seatsLeft, AircraftType: aircraftType}, nil
 }
 
 func (repo *Repository) addSingleFlight(ctx context.Context, flight FlightRecord) error {

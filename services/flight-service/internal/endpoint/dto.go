@@ -32,6 +32,7 @@ type GetFlightResponse struct {
 	FlightNumber           string    `json:"flight_number"`
 	AirlineName            string    `json:"airline_name"`
 	AircraftType           string    `json:"aircraft_type"`
+	SeatsLeft              int       `json:"seats_left"`
 	SourceAirportCode      string    `json:"source_airport_code"`
 	SourceAirportName      string    `json:"source_airport_name"`
 	DestinationAirportCode string    `json:"destination_airport_code"`

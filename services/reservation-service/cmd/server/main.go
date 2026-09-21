@@ -29,6 +29,10 @@ func main() {
 	log.Println("Env Loaded...")
 
 	db, err := dbInitializer.NewPostgres(ctx, cfg.PostgresDSN)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
 	err = database.InitSchema(ctx, db)
 	if err != nil {
 		log.Fatal(err)
@@ -65,7 +69,7 @@ func main() {
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	h := endpoint.NewHandler(db, nil, cfg.BookingServiceURL, cfg.BookingServiceURL)
+	h := endpoint.NewHandler(db, nil, cfg.FlightServiceURL, cfg.BookingServiceURL)
 
 	r := h.InitRoutes(tokenAuth, logger)
 	err = http.ListenAndServe(":"+cfg.Port, r)

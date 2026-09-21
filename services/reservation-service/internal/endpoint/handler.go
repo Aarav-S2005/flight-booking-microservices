@@ -32,6 +32,7 @@ func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth, logger *slog.Logger) ch
 	r.Use(auth_middlewares.Verifier(tokenAuth))
 	r.Use(auth_middlewares.Authenticator(tokenAuth))
 	r.Post("/reserve", h.reserveSeats)
+	r.Get("/aircrafts", h.getAircraftDetails)
 	return r
 }
 
@@ -53,4 +54,8 @@ func (h *Handler) reserveSeats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *Handler) getAircraftDetails(w http.ResponseWriter, r *http.Request) {
+
 }

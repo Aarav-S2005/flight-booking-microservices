@@ -11,6 +11,7 @@ type Config struct {
 	PublicJwtSecretPath string `env:"PUBLIC_KEY_JWT_PATH"`
 	RabbitMQURL         string `env:"RABBITMQ_URL"`
 	BookingServiceURL   string `env:"BOOKING_SERVICE_URL"`
+	FlightServiceURL    string `env:"FLIGHT_SERVICE_URL"`
 	RedisURI            string `env:"REDIS_URI"`
 }
 

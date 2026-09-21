@@ -53,6 +53,7 @@ func (s *Service) getFlight(ctx context.Context, flightID uuid.UUID) (GetFlightR
 		FlightNumber:           flight.FlightNumber,
 		AirlineName:            flight.AirlineName,
 		AircraftType:           flight.AircraftType,
+		SeatsLeft:              flight.SeatsLeft,
 		SourceAirportCode:      flight.SourceAirportCode,
 		SourceAirportName:      sourceAirportName,
 		DestinationAirportCode: flight.DestinationAirportCode,
@@ -66,7 +67,7 @@ func (s *Service) getFlight(ctx context.Context, flightID uuid.UUID) (GetFlightR
 
 func (s *Service) createFlight(ctx context.Context, reqBody CreateFlightDTO) error {
 	var resBody GetFlightSeatsFromBookingResponse
-	resp, err := s.client.R().SetQueryParam("aircraft-type", reqBody.AircraftType).SetResult(&resBody).Get("/flight-type")
+	resp, err := s.client.R().SetQueryParam("aircraft-type", reqBody.AircraftType).SetResult(&resBody).Get("/aircrafts")
 	if err != nil {
 		return err
 	}
