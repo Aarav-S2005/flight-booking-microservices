@@ -195,7 +195,7 @@ func (s *Service) validatePayment(ctx context.Context, reqBody ValidateBookingFo
 	if reqBody.PaymentTime.After(deadline) {
 		seatUpdates, err := s.repo.increaseFlightSeatsByBookingID(ctx, bookingID)
 		if err != nil {
-			log.Fatal("could not update flight seats by booking id", err)
+			log.Println("could not update flight seats by booking id", err)
 			return false, nil
 		}
 		for _, update := range seatUpdates {

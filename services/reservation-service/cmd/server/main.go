@@ -15,6 +15,7 @@ import (
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/keys"
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/rabbitmq"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/go-resty/resty/v2"
 )
 
 func main() {
@@ -53,7 +54,7 @@ func main() {
 		log.Fatal(err)
 	}
 	consumer := rabbitmq.NewConsumer(conn, async.Queue)
-	err = consumer.Consume(ctx, "notification-service", 10, async.HandleBookingConfirmed(repo))
+	err = consumer.Consume(ctx, "notification-service", 10, async.HandleBookingConfirmed(repo, resty.New().SetHeader("Content-Type", "application/json"), cfg.FlightServiceURL))
 	if err != nil {
 		log.Fatal(err)
 	}

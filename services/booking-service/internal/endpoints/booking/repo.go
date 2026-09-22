@@ -253,7 +253,7 @@ func (repo *Repository) getBookingCreationTime(ctx context.Context, userID, book
 }
 
 func (repo *Repository) updateStatusByBookingID(ctx context.Context, bookingID uuid.UUID, status string) error {
-	_, err := repo.db.Exec(ctx, "update bookings set status = $1 where booking_id = $1", status, bookingID)
+	_, err := repo.db.Exec(ctx, "update bookings set status = $1 where booking_id = $2", status, bookingID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrBookingNotFound

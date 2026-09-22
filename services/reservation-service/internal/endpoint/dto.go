@@ -1,5 +1,7 @@
 package endpoint
 
+import "time"
+
 type ReserveSeatsRequestDTO struct {
 	BookingID string        `json:"booking_id"`
 	Seats     SeatSelection `json:"seats"`
@@ -32,4 +34,10 @@ type ValidateBookingForReservationResponseDTO struct {
 
 type GetFlightSeatsFromReservationRequest struct {
 	SeatsLeft int `json:"seats_left"`
+}
+
+type FlightResponse struct {
+	FlightID      string     `json:"flight_id"`
+	AircraftType  string     `json:"aircraft_type"`
+	DepartureTime *time.Time `json:"departure_time"`
 }

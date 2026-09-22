@@ -1,6 +1,7 @@
 package endpoint
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -26,16 +27,22 @@ func NewHandler(db *pgxpool.Pool, bookingServiceURL string) *Handler {
 
 func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth, logger *slog.Logger) chi.Router {
 	r := chi.NewRouter()
+	r.Group(func(r chi.Router) {
+		r.Use(auth_middlewares.Verifier(tokenAuth))
+		r.Use(auth_middlewares.Authenticator(tokenAuth))
+		r.Post("/pay", h.pay)
+	})
 	r.Use(middlewares.Logger(logger))
-	r.Use(auth_middlewares.Verifier(tokenAuth))
-	r.Use(auth_middlewares.Authenticator(tokenAuth))
-	r.Post("/pay", h.pay)
 	r.Post("/validate-payment", h.validatePayment)
 	return r
 }
 
 func (h *Handler) pay(w http.ResponseWriter, r *http.Request) {
 	userID, err := utility.UserIDFromContext(r.Context())
+	if err != nil {
+		app_error.HandleError(w, app_error.Unauthorized("missing token", errors.New("unauthorized")))
+		return
+	}
 	var reqBody MakePaymentDTO
 	err = utility.ConvertJSONToStruct(r, &reqBody)
 	if err != nil {

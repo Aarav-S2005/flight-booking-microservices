@@ -24,15 +24,23 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 }
 
 func (r *Repository) findRecordByUserIDAndBookingID(ctx context.Context, userID, bookingID uuid.UUID) (database.Payment, error) {
-	var payment database.Payment
-	err := r.db.QueryRow(ctx, "select * from payments where user_id = $1 and booking_id = $2", userID, bookingID).Scan(&payment)
+	var paymentID uuid.UUID
+	var amount int
+	var paymentCompletedAt time.Time
+	err := r.db.QueryRow(ctx, "select payment_id, amount, payment_completed_at from payments where user_id = $1 and booking_id = $2", userID, bookingID).Scan(&paymentID, &amount, &paymentCompletedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return database.Payment{}, ErrPaymentNotFound
 		}
-		return payment, err
+		return database.Payment{}, err
 	}
-	return payment, nil
+	return database.Payment{
+		PaymentID:          paymentID,
+		BookingID:          bookingID,
+		UserID:             userID,
+		Amount:             amount,
+		PaymentCompletedAt: &paymentCompletedAt,
+	}, nil
 }
 
 func (r *Repository) savePayment(ctx context.Context, paymentTime time.Time, userID, bookingID uuid.UUID, amount int) error {

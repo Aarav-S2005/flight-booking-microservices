@@ -26,11 +26,13 @@ func NewHandler(db *pgxpool.Pool, flightServiceURL, reservationServiceURL, payme
 
 func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth, logger *slog.Logger) chi.Router {
 	r := chi.NewRouter()
-	r.Use(auth_middlewares.Verifier(tokenAuth))
-	r.Use(auth_middlewares.Authenticator(tokenAuth))
-	r.Use(middlewares.Logger(logger))
-	r.Post("/book", h.bookTicket)
-	r.Get("/booking", h.getAllBookings)
+	r.Group(func(r chi.Router) {
+		r.Use(auth_middlewares.Verifier(tokenAuth))
+		r.Use(auth_middlewares.Authenticator(tokenAuth))
+		r.Use(middlewares.Logger(logger))
+		r.Post("/book", h.bookTicket)
+		r.Get("/booking", h.getAllBookings)
+	})
 	r.Post("/validate-booking", h.validateBookingForPayment)
 	r.Post("/validate-payment", h.validatePayment)
 	r.Post("/validate-reservation", h.validateBookingForReservation)

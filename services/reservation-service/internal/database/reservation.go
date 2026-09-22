@@ -28,3 +28,9 @@ type SeatAllocation struct {
 	SeatNumber      *int      `db:"seat_number" json:"seat_number"`
 	PassengerID     uuid.UUID `db:"passenger_id" json:"passenger_id"`
 }
+
+type FlightsSchema struct {
+	FlightID      uuid.UUID  `db:"flight_id" json:"flight_id"`
+	AircraftType  string     `db:"aircraft_type" json:"aircraft_type"`
+	DepartureTime *time.Time `db:"departure_time" json:"departure_time"`
+}

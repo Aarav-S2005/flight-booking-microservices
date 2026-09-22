@@ -10,7 +10,6 @@ import (
 	app_error "github.com/Aarav-S2005/flight-booking-microservices/shared/app-error"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -52,7 +51,7 @@ func (s *Service) Pay(ctx context.Context, userID uuid.UUID, reqBody MakePayment
 			paymentRecord = database.Payment{
 				UserID:    userID,
 				BookingID: bookingID,
-				Amount:    reqBody.Amount,
+				Amount:    respBody.TotalFare,
 			}
 		} else {
 			return err
@@ -95,7 +94,7 @@ func (s *Service) Pay(ctx context.Context, userID uuid.UUID, reqBody MakePayment
 func (s *Service) validatePayment(ctx context.Context, bookingID, userID uuid.UUID) (bool, error) {
 	paymentRecord, err := s.repo.findRecordByUserIDAndBookingID(ctx, userID, bookingID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, ErrPaymentNotFound) {
 			return false, app_error.NotFound("payment not found", errors.New("payment not found"))
 		}
 		return false, err

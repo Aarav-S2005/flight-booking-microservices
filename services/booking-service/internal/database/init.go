@@ -76,7 +76,7 @@ const (
 	flightsTable = `
 		CREATE TABLE IF NOT EXISTS flights (
 			flight_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			aircraft_type VARCHAR(40)
+			aircraft_type VARCHAR(40),
 			seats_left INT,
 			total_seats INT,
 			version BIGINT,

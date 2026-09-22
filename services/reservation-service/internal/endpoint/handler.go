@@ -62,5 +62,10 @@ func (h *Handler) getAircraftDetails(w http.ResponseWriter, r *http.Request) {
 		app_error.HandleError(w, app_error.BadRequest("aircraft type is required", errors.New("aircraft type is required")))
 		return
 	}
-
+	resp, err := h.service.getAircraftDetails(r.Context(), aircraftType)
+	if err != nil {
+		app_error.HandleError(w, err)
+		return
+	}
+	utility.ConvertStructToJSON(w, 200, resp)
 }

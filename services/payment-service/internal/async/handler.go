@@ -30,7 +30,7 @@ func AddNewDuePaymentRecord(db *pgxpool.Pool) rabbitmq.Handler {
 			log.Printf("parse failed for %q: %v", msg.RoutingKey, err)
 			return rabbitmq.NackDiscard
 		}
-		_, err = db.Exec(ctx, "insert into payments(user_id, booking_id, amount) values ($1, $2, $3)", userID, bookingID, body.TotalFare)
+		_, err = db.Exec(ctx, "insert into payments(user_id, booking_id, amount) values ($1, $2, $3) ON CONFLICT (user_id, booking_id) DO NOTHING", userID, bookingID, body.TotalFare)
 		if err != nil {
 			log.Printf("insert failed for %q: %v", msg.RoutingKey, err)
 			return rabbitmq.NackRequeue

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Aarav-S2005/flight-booking-microservices/shared/utility"
@@ -106,6 +107,41 @@ func (r *Repository) InsertReservationWithoutSeatReservation(ctx context.Context
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func (r *Repository) InsertFlights(ctx context.Context, flights []FlightsSchema) error {
+	if len(flights) == 0 {
+		return nil
+	}
+
+	query := `
+		INSERT INTO flights (
+			flight_id,
+			aircraft_type,
+			departure_time
+		)
+		VALUES `
+
+	args := make([]any, 0, len(flights)*3)
+	values := make([]string, 0, len(flights))
+
+	for i, flight := range flights {
+		n := i*3 + 1
+
+		values = append(values, fmt.Sprintf("($%d, $%d, $%d)", n, n+1, n+2))
+
+		args = append(args,
+			flight.FlightID,
+			flight.AircraftType,
+			flight.DepartureTime,
+		)
+	}
+
+	query += strings.Join(values, ", ")
+	query += ` ON CONFLICT (flight_id) DO NOTHING`
+
+	_, err := r.db.Exec(ctx, query, args...)
+	return err
 }
 
 func (r *Repository) GetSeatsLeftByAircraftType(ctx context.Context, aircraftType string) (int, error) {

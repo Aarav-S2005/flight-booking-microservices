@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -66,9 +67,37 @@ func (s *Service) reserveSeats(ctx context.Context, reqBody ReserveSeatsRequestD
 		if err != nil {
 			return err
 		}
-		if resp.StatusCode() != 200 {
+		if resp.StatusCode() == 200 {
 			if response.Status == "PAYMENT_PENDING" {
 				return app_error.BadRequest("payment pending", errors.New(response.Status))
+			}
+			flights := make([]database.FlightsSchema, 0, len(response.FlightIDs))
+			for _, fid := range response.FlightIDs {
+				flightID, err := uuid.Parse(fid)
+				if err != nil {
+					return err
+				}
+				var flight FlightResponse
+				resp, err := s.client.R().SetContext(ctx).SetResult(&flight).Get(fmt.Sprintf("%s/flight/%s", s.flightServiceURL, fid))
+				if err != nil {
+					return err
+				}
+				if resp.IsError() {
+					log.Println(resp.Error())
+					return errors.New("error from flight service: " + resp.Status())
+				}
+				flights = append(flights, database.FlightsSchema{
+					FlightID:      flightID,
+					AircraftType:  flight.AircraftType,
+					DepartureTime: flight.DepartureTime,
+				})
+			}
+			if err := s.repo.InsertFlights(ctx, flights); err != nil {
+				if errors.Is(err, database.ErrExternal) {
+					log.Println("failed to insert flights:", err)
+					return err
+				}
+				return err
 			}
 			err = s.repo.InsertReservationWithoutSeatReservation(ctx, bookingID, userID, response.Passengers, response.FlightIDs)
 			if err != nil {
