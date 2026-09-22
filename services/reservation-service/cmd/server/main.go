@@ -46,7 +46,6 @@ func main() {
 	conn, err := rabbitmq.Connect(cfg.RabbitMQURL)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
 	log.Println("RabbitMQ initialized...")
 	defer conn.Close()

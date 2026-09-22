@@ -27,12 +27,12 @@ func NewHandler(db *pgxpool.Pool, bookingServiceURL string) *Handler {
 
 func (h *Handler) InitRoutes(tokenAuth *jwtauth.JWTAuth, logger *slog.Logger) chi.Router {
 	r := chi.NewRouter()
+	r.Use(middlewares.Logger(logger))
 	r.Group(func(r chi.Router) {
 		r.Use(auth_middlewares.Verifier(tokenAuth))
 		r.Use(auth_middlewares.Authenticator(tokenAuth))
 		r.Post("/pay", h.pay)
 	})
-	r.Use(middlewares.Logger(logger))
 	r.Post("/validate-payment", h.validatePayment)
 	return r
 }
